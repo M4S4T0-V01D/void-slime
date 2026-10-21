@@ -1,0 +1,17 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+keystore.properties
+*.jks
+*.keystore
+*.apk
+!docs/*.apk
+.idea/
+.android-home/
+.gradle-home/
+
+node_modules/
+.wrangler/
+
+.android-home/
