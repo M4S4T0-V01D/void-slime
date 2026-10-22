@@ -52,6 +52,7 @@ import dev.m4s4t0.voidslime.gl.SlimeView
 import dev.m4s4t0.voidslime.gl.Tool
 import dev.m4s4t0.voidslime.model.Game
 import dev.m4s4t0.voidslime.model.GameEvent
+import dev.m4s4t0.voidslime.model.Quests
 import dev.m4s4t0.voidslime.model.Recipe
 import dev.m4s4t0.voidslime.model.Stat
 import dev.m4s4t0.voidui.CosmicBackground
@@ -175,6 +176,12 @@ fun SlimeAppUi() {
                     Haptics.buzz(Haptics.Kind.SUCCESS)
                     state.toasts += Toast(System.nanoTime(), "⭐", "Level ${e.level}!", "+25 🪙 bonus")
                     state.celebrate()
+                }
+                is GameEvent.QuestDone -> {
+                    Audio.play(Snd.STICKER, 0.8f)
+                    Haptics.buzz(Haptics.Kind.SUCCESS)
+                    state.toasts += Toast(System.nanoTime(), e.quest.emoji, "Challenge done!", "${e.quest.text} · +${e.quest.reward} 🪙")
+                    if (e.allDone) state.toasts += Toast(System.nanoTime() + 1, "🏆", "All three done today!", "+${Quests.ALL_BONUS} 🪙 bonus, see you tomorrow")
                 }
                 is GameEvent.Coins -> if (e.amount >= 1) Audio.play(Snd.COIN, if (e.amount > 3) 0.7f else 0.35f, 1f, 0f, 120)
             }

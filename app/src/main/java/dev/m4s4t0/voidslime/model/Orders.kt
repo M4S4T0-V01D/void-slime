@@ -112,6 +112,7 @@ fun key(c: SlimeColor) = "color:${c.id}"
 fun key(a: AddIn) = "addin:${a.id}"
 fun key(g: Glitter) = "glitter:${g.id}"
 fun key(t: Tray) = "tray:${t.id}"
+fun key(t: Toy) = "toy:${t.id}"
 
 fun priceOf(k: String): Int {
     val (kind, id) = k.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
@@ -121,6 +122,7 @@ fun priceOf(k: String): Int {
         "addin" -> AddIn.entries.firstOrNull { it.id == id }?.price
         "glitter" -> Glitter.entries.firstOrNull { it.id == id }?.price
         "tray" -> Tray.entries.firstOrNull { it.id == id }?.price
+        "toy" -> Toy.entries.firstOrNull { it.id == id }?.price
         else -> null
     } ?: 0
 }
@@ -134,6 +136,7 @@ fun label(k: String): String {
         "addin" -> AddIn.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title}" }
         "glitter" -> Glitter.entries.firstOrNull { it.id == id }?.let { "✨ ${it.title} glitter" }
         "tray" -> Tray.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title} dish" }
+        "toy" -> Toy.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title}" }
         else -> null
     } ?: k
 }

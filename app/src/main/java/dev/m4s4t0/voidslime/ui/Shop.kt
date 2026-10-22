@@ -35,7 +35,9 @@ import dev.m4s4t0.voidslime.model.Game
 import dev.m4s4t0.voidslime.model.Glitter
 import dev.m4s4t0.voidslime.model.Order
 import dev.m4s4t0.voidslime.model.Orders
+import dev.m4s4t0.voidslime.model.Toy
 import dev.m4s4t0.voidslime.model.Tray
+import dev.m4s4t0.voidslime.gl.Tool
 import dev.m4s4t0.voidslime.model.colorOf
 import dev.m4s4t0.voidslime.model.key
 import dev.m4s4t0.voidslime.model.label
@@ -59,7 +61,7 @@ fun ShopScreen(state: AppState) {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Pills(listOf(0 to "🛎️ Orders", 1 to "🧺 Supplies", 2 to "🍽️ Dishes"), tab) { tapFeedback(); tab = it }
+            Pills(listOf(0 to "🛎️ Orders", 1 to "🧺 Supplies", 2 to "🧸 Toys", 3 to "🍽️ Dishes"), tab) { tapFeedback(); tab = it }
             when (tab) {
                 0 -> for (o in Game.orders) OrderCard(o, onMake = {
                     state.pinnedOrder = o.id
@@ -72,6 +74,10 @@ fun ShopScreen(state: AppState) {
                     Supply("Colours", COLORS.map { key(it) to "🎨" }, colors = true) { buying = it }
                     Supply("Mix-ins", AddIn.entries.map { key(it) to it.emoji }) { buying = it }
                     Supply("Glitter", Glitter.entries.drop(1).map { key(it) to "✨" }) { buying = it }
+                }
+                2 -> {
+                    Text("Extra tools for playing with your slime. They show up in Play's toolbar.", color = Void.dim, fontSize = 13.sp)
+                    for (t in Toy.entries) ToyCard(t, onTry = { state.tool = Tool.valueOf(t.name); state.go(Screen.PLAY) }) { buying = key(t) }
                 }
                 else -> {
                     Text("The dish your slime sits in.", color = Void.dim, fontSize = 13.sp)
@@ -145,6 +151,22 @@ private fun OrderCard(o: Order, onMake: () -> Unit, onHand: () -> Unit, onSkip: 
             PillButton("🏺 From shelf", false) { tapFeedback(); onHand() }
             Spacer(Modifier.weight(1f))
             PillButton("Skip", false) { tapFeedback(); onSkip() }
+        }
+    }
+}
+
+@Composable
+private fun ToyCard(t: Toy, onTry: () -> Unit, onBuy: () -> Unit) {
+    val owned = Game.isUnlocked(key(t))
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(t.emoji, fontSize = 36.sp)
+            Column(Modifier.weight(1f)) {
+                Text(t.title, color = Void.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(t.blurb, color = Void.dim, fontSize = 13.sp)
+            }
+            if (owned) PillButton("Play", true) { tapFeedback(); onTry() }
+            else PillButton("🪙 ${t.price}", Game.coins >= t.price) { tapFeedback(); onBuy() }
         }
     }
 }

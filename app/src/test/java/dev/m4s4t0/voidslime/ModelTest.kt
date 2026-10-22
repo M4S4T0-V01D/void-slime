@@ -7,6 +7,11 @@ import dev.m4s4t0.voidslime.model.Glitter
 import dev.m4s4t0.voidslime.model.Levels
 import dev.m4s4t0.voidslime.model.Order
 import dev.m4s4t0.voidslime.model.Orders
+import dev.m4s4t0.voidslime.model.Quest
+import dev.m4s4t0.voidslime.model.Quests
+import dev.m4s4t0.voidslime.model.Shape
+import dev.m4s4t0.voidslime.model.Toy
+import dev.m4s4t0.voidslime.model.Tray
 import dev.m4s4t0.voidslime.model.Recipe
 import dev.m4s4t0.voidslime.model.key
 import dev.m4s4t0.voidslime.model.label
@@ -76,5 +81,36 @@ class ModelTest {
         assertEquals(Triple(1, 59, 60), Levels.of(59))
         assertEquals(Triple(2, 0, 100), Levels.of(60))
         assertEquals(3, Levels.of(160).first)
+    }
+
+    @Test fun everyShopThingHasAPriceALabelAndAUniqueKey() {
+        val keys = Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key)
+        assertEquals(keys.size, keys.toSet().size)
+        for (k in keys) assertTrue("$k has no label", label(k) != k)
+        for (t in Toy.entries) assertTrue("${t.id} should cost something", priceOf(key(t)) > 0)
+        // The particles' spark keeps its sprite number; add-ins never use it.
+        assertEquals(9, Shape.SPARK.ordinal)
+        assertTrue(AddIn.entries.none { it.shape == Shape.SPARK })
+    }
+
+    @Test fun dailyChallengesAreDifferentAndOnlyUseOwnedToys() {
+        repeat(50) { seed ->
+            val qs = Quests.daily(Random(seed), { it == "toy:slap" }, 3, emptyMap())
+            assertEquals(3, qs.size)
+            assertEquals(3, qs.map { it.stat }.toSet().size)
+            for (q in qs) {
+                val needs = Quests.kind(q.stat)!!.needs
+                assertTrue("${q.stat} needs $needs", needs == null || needs == "toy:slap")
+                assertTrue(q.reward in 10..60)
+            }
+        }
+    }
+
+    @Test fun challengeProgressCountsFromTheStartOfTheDay() {
+        val q = Quest("pokes", 80, start = 1000, reward = 20)
+        assertEquals(0, Quests.progress(q, mapOf("pokes" to 1000L)))
+        assertEquals(30, Quests.progress(q, mapOf("pokes" to 1030L)))
+        assertEquals(80, Quests.progress(q, mapOf("pokes" to 5000L)))
+        assertEquals(q, Quest.fromJson(JSONObject(q.toJson().toString())))
     }
 }

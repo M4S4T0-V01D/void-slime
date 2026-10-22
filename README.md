@@ -16,12 +16,22 @@ and a volume it tries to keep), so it dents, bulges, jiggles and slowly flows ba
 - **Bubbles**: blow bubbles out of it and pop them.
 
 Each base feels different: Glossy, Clear and Butter to start, then Cloud, Jelly, Icee (it crunches),
-Chrome, Holo and Glow (turn the lights off) from the supply shop.
+Chrome, Holo, Glow (turn the lights off), Floam, Pearl, Magnetic, Thermo (changes colour as you work it)
+and Galaxy (twinkling stars inside) from the supply shop.
+
+## Toys
+Bought with coins in the shop's Toys tab or straight from the Play toolbar:
+- **Slap**: a big wobbly smack.
+- **Rake**: drag four tines through it to leave grooves.
+- **Star stamp**: press a star into it and leave a print.
+- **Sprinkle shaker**: shake sprinkles that land and stick.
+- **Magnet**: hold it over the slime and it pulls up into a peak (much stronger on Magnetic slime).
+- **Bubble wand**: wave out a cloud of bubbles; golden ones are worth a coin.
 
 ## The lab
-Five steps: pick a **base**, up to three of 24 **colours** (they swirl rather than blend), **mix-ins**
+Five steps: pick a **base**, up to three of 38 **colours** (they swirl rather than blend), **mix-ins**
 (foam beads, sprinkles, stars, hearts, pearls, fishbowl beads, sugar crystals, fruit slices,
-snowflakes, confetti) and **glitter**, then pour in the activator and **stir** it until the runny
+snowflakes, confetti, micro beads, daisies, moons, gold leaf, gems, gummies) and **glitter**, then pour in the activator and **stir** it until the runny
 puddle comes together into slime. Name it and it goes into a jar on your shelf.
 
 ## And more
@@ -29,9 +39,10 @@ puddle comes together into slime. Name it and it goes into a jar on your shelf.
   favourites or A–Z, play with any of them again.
 - **Slime shop**: customers ask for things ("a glossy slime with stars!"); make it or bring one from the
   shelf and earn coins (up to three stars for getting it right). Spend them on supplies and new dishes
-  (marble, bubblegum, mint, wood, neon).
+  (marble, bubblegum, mint, wood, neon, candy, sunset, ice, starry, gold) and toys.
 - **Bubble rush**: pop as many bubbles as you can in 45 seconds; golden ones are worth 5.
-- **Stickers**: 23 to collect for poking, stretching, making and selling, each with a coin reward.
+- **Daily challenges**: three new ones every day, with coins for each and a bonus for all three.
+- **Stickers**: 33 to collect for poking, stretching, making and selling, each with a coin reward.
 - **A daily gift**: coins, a mystery jar and sometimes a new supply.
 - Levels as you play, which bring harder (better paid) orders.
 

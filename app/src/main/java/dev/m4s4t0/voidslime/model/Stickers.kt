@@ -17,6 +17,19 @@ object Stat {
     const val SECONDS = "seconds"
     const val LIGHTS_OFF = "lights_off"
     const val BOUGHT = "bought"
+    const val SLAPS = "slaps"
+    const val RAKES = "rakes"
+    const val STAMPS = "stamps"
+    /** Seconds of shaking sprinkles. */
+    const val SHAKES = "shakes"
+    /** Seconds of holding the magnet. */
+    const val MAGNET = "magnet"
+    const val WANDS = "wands"
+    const val GOLD_POPS = "gold_pops"
+    const val RUSHES = "rushes"
+    const val QUESTS = "quests"
+    /** Days with all three challenges done. */
+    const val QUEST_DAYS = "quest_days"
 }
 
 data class Sticker(val id: String, val emoji: String, val title: String, val desc: String, val stat: String, val goal: Int, val reward: Int)
@@ -45,6 +58,16 @@ val STICKERS = listOf(
     Sticker("time-30m", "🧘", "Zen", "Play for 30 minutes", Stat.SECONDS, 1800, 60),
     Sticker("lights-off", "🌙", "Night light", "Turn the lights off on a glow slime", Stat.LIGHTS_OFF, 1, 20),
     Sticker("shopper-5", "🛍️", "Big spender", "Buy 5 supplies", Stat.BOUGHT, 5, 40),
+    Sticker("shopper-25", "💳", "Shopaholic", "Buy 25 things from the shop", Stat.BOUGHT, 25, 150),
+    Sticker("slap-50", "🖐️", "High five", "Slap slime 50 times", Stat.SLAPS, 50, 30),
+    Sticker("rake-30", "🍴", "Zen garden", "Rake grooves 30 times", Stat.RAKES, 30, 40),
+    Sticker("stamp-25", "⭐", "Star maker", "Stamp 25 stars", Stat.STAMPS, 25, 40),
+    Sticker("shake-60", "🧂", "Sprinkle chef", "Shake sprinkles for a minute", Stat.SHAKES, 60, 40),
+    Sticker("magnet-60", "🧲", "Magnetic personality", "Hold the magnet for a minute", Stat.MAGNET, 60, 50),
+    Sticker("wand-30", "🪄", "Bubble wizard", "Wave the bubble wand 30 times", Stat.WANDS, 30, 40),
+    Sticker("gold-25", "🪙", "Gold digger", "Pop 25 golden bubbles", Stat.GOLD_POPS, 25, 60),
+    Sticker("quest-10", "🎯", "Go-getter", "Finish 10 daily challenges", Stat.QUESTS, 10, 50),
+    Sticker("quest-days-5", "🏆", "Challenge champ", "Finish all three challenges on 5 days", Stat.QUEST_DAYS, 5, 120),
 )
 
 /** Levels: each one needs a little more XP than the last. */

@@ -21,6 +21,7 @@ sealed interface GameEvent {
     data class StickerEarned(val sticker: Sticker) : GameEvent
     data class LevelUp(val level: Int) : GameEvent
     data class Coins(val amount: Int) : GameEvent
+    data class QuestDone(val quest: Quest, val allDone: Boolean) : GameEvent
 }
 
 /**
@@ -41,6 +42,7 @@ object Game {
     var currentId by mutableStateOf<String?>(null)
     val earned = mutableStateListOf<String>()
     val orders = mutableStateListOf<Order>()
+    val quests = mutableStateListOf<Quest>()
     var tray by mutableStateOf(Tray.VOID)
     var giftReady by mutableStateOf(false)
         private set
@@ -75,6 +77,8 @@ object Game {
         currentId = prefs.getString("current", null)
         val os = runCatching { JSONArray(prefs.getString("orders", "[]")) }.getOrNull()
         if (os != null) for (i in 0 until os.length()) runCatching { orders += Order.fromJson(os.getJSONObject(i)) }
+        val qs = runCatching { JSONArray(prefs.getString("quests", "[]")) }.getOrNull()
+        if (qs != null) for (i in 0 until qs.length()) runCatching { quests += Quest.fromJson(qs.getJSONObject(i)) }
         topUpOrders()
         visit()
         saveAll()
@@ -93,6 +97,11 @@ object Game {
         }
         prefs.edit().putString("lastVisit", today.toString()).apply()
         giftReady = prefs.getString("giftDay", null) != today.toString()
+        if (prefs.getString("questDay", null) != today.toString() || quests.isEmpty()) {
+            quests.clear()
+            quests.addAll(Quests.daily(rnd, ::isUnlocked, level, stats))
+            prefs.edit().putString("questDay", today.toString()).apply()
+        }
         checkStickers()
     }
 
@@ -155,6 +164,8 @@ object Game {
     /** Counts a stat. Play actions also trickle coins and XP. */
     fun add(stat: String, n: Long = 1) {
         stats[stat] = (stats[stat] ?: 0) + n
+        // Golden bubbles outside Bubble rush are worth a coin each.
+        if (stat == Stat.GOLD_POPS) earn(n.toInt())
         if (stat in PLAY_STATS) {
             sinceCoin += n.toInt()
             if (sinceCoin >= TRICKLE) {
@@ -163,7 +174,25 @@ object Game {
             }
         }
         dirty = true
+        checkQuests()
         checkStickers()
+    }
+
+    private fun checkQuests() {
+        for (i in quests.indices) {
+            val q = quests[i]
+            if (q.done || Quests.progress(q, stats) < q.goal) continue
+            quests[i] = q.copy(done = true)
+            stats[Stat.QUESTS] = (stats[Stat.QUESTS] ?: 0) + 1
+            earn(q.reward, 15)
+            val all = quests.all { it.done }
+            if (all) {
+                stats[Stat.QUEST_DAYS] = (stats[Stat.QUEST_DAYS] ?: 0) + 1
+                earn(Quests.ALL_BONUS, 30)
+            }
+            _events.tryEmit(GameEvent.QuestDone(q, all))
+            dirty = true
+        }
     }
 
     /** A best score: only kept if higher. */
@@ -202,7 +231,7 @@ object Game {
     }
 
     fun allKeys(): List<String> =
-        Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key)
+        Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key)
 
     fun chooseTray(t: Tray) {
         if (!isUnlocked(key(t))) return
@@ -280,13 +309,14 @@ object Game {
             .putString("jars", JSONArray(jars.map { it.toJson() }).toString())
             .putString("current", currentId)
             .putString("orders", JSONArray(orders.map { it.toJson() }).toString())
+            .putString("quests", JSONArray(quests.map { it.toJson() }).toString())
             .apply()
     }
 
     /** Start over: everything back to a fresh shelf. */
     fun reset() {
         prefs.edit().clear().apply()
-        stats.clear(); unlocked.clear(); earned.clear(); jars.clear(); orders.clear()
+        stats.clear(); unlocked.clear(); earned.clear(); jars.clear(); orders.clear(); quests.clear()
         coins = 60; xp = 0; currentId = null; tray = Tray.VOID
         jars.addAll(STARTER_JARS)
         topUpOrders()
@@ -296,5 +326,8 @@ object Game {
     }
 
     private const val TRICKLE = 30
-    private val PLAY_STATS = setOf(Stat.POKES, Stat.STRETCHES, Stat.SQUISHES, Stat.ROLLS, Stat.POPS, Stat.CRUNCHES, Stat.SNAPS)
+    private val PLAY_STATS = setOf(
+        Stat.POKES, Stat.STRETCHES, Stat.SQUISHES, Stat.ROLLS, Stat.POPS, Stat.CRUNCHES, Stat.SNAPS,
+        Stat.SLAPS, Stat.RAKES, Stat.STAMPS, Stat.SHAKES, Stat.MAGNET, Stat.WANDS,
+    )
 }

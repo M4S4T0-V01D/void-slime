@@ -4,8 +4,8 @@ import dev.m4s4t0.voidslime.model.AddIn
 import dev.m4s4t0.voidslime.sim.Grab
 import dev.m4s4t0.voidslime.sim.SphereCollider
 
-/** What a finger does to the slime. */
-enum class Tool { NONE, POKE, STRETCH, SQUISH, ROLL, BUBBLE, STIR }
+/** What a finger does to the slime. SLAP to WAND are bought in the shop (model.Toy, same names). */
+enum class Tool { NONE, POKE, STRETCH, SQUISH, ROLL, BUBBLE, STIR, SLAP, RAKE, STAMP, SHAKER, MAGNET, WAND }
 
 /** Which screen the scene is on: Home spins slowly, the Lab stirs, Rush spawns bubbles to pop. */
 enum class SceneMode { HOME, PLAY, LAB, RUSH }
@@ -58,9 +58,15 @@ internal class Particle {
     var shape = 9f
     var angle = 0f
     var gravity = 2.2f
+    /** Falls onto the slime and stays there a while (the sprinkle shaker). */
+    var lands = false
+    var landed = false
 }
 
-internal enum class Kind { ORBIT, FINGER, GRAB, PALM, PIN, BUBBLE, STIR, DONE }
+/** A tool drawn as a ball: rake tines, the stamp, the magnet, the shaker. */
+internal class Prop(val x: Float, val y: Float, val z: Float, val r: Float, val rgb: FloatArray)
+
+internal enum class Kind { ORBIT, FINGER, GRAB, PALM, PIN, BUBBLE, STIR, RAKE, STAMP, SHAKER, MAGNET, DONE }
 
 internal class Touch(val id: Int, var x: Float, var y: Float, val start: Float) {
     var kind = Kind.ORBIT
@@ -81,4 +87,10 @@ internal class Touch(val id: Int, var x: Float, var y: Float, val start: Float) 
     var clickAcc = 0f
     var px = 0f; var py = 0f; var pz = 0f
     var counted = false
+    /** Rake tines and stamp points. */
+    var balls: List<SphereCollider> = emptyList()
+    /** The stamp's face height, the magnet's and shaker's height. */
+    var level = 0f
+    var clock = 0f
+    var ticks = 0
 }

@@ -218,6 +218,7 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         p.f("uCount", r.colors.size.toFloat()); p.f("uMix", scene.mix)
         p.f("uAlpha", m.alpha); p.f("uGloss", m.gloss); p.f("uFluff", m.fluff); p.f("uMetal", m.metal)
         p.f("uHolo", m.holo); p.f("uGlow", m.glow); p.f("uFrost", m.frost)
+        p.f("uGalaxy", m.galaxy); p.f("uThermo", m.thermo); p.f("uHeat", scene.heat)
         val g = r.glitter
         when {
             g == Glitter.NONE -> p.v4("uGlitter", 0f, 0f, 0f, 0f)
@@ -258,6 +259,17 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
             Matrix.rotateM(model, 0, -90f, 0f, 0f, 1f)
             Matrix.rotateM(model, 0, Math.toDegrees(scene.pinSpin.toDouble()).toFloat(), 0f, 1f, 0f)
             drawSolid(pinMesh, model, floatArrayOf(0.85f, 0.62f, 0.4f), 1f, 0.4f, ZERO)
+            glEnable(GL_BLEND)
+        }
+        val props = scene.props
+        if (props.isNotEmpty()) {
+            glDisable(GL_BLEND)
+            for (pr in props) {
+                Matrix.setIdentityM(model, 0)
+                Matrix.translateM(model, 0, pr.x, pr.y, pr.z)
+                Matrix.scaleM(model, 0, pr.r, pr.r, pr.r)
+                drawSolid(bubbleMesh, model, pr.rgb, 1f, 0.8f, ZERO)
+            }
             glEnable(GL_BLEND)
         }
     }
@@ -322,7 +334,7 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         if (scene.particles.isEmpty()) return
         beginSprites()
         for (p in scene.particles) {
-            val a = (p.life / p.max).coerceIn(0f, 1f)
+            val a = (if (p.lands) p.life else p.life / p.max).coerceIn(0f, 1f)
             put(p.x, p.y, p.z, p.r, p.g, p.b, a, p.size * (0.6f + 0.4f * a), p.shape, p.angle, 1f)
         }
         flushSprites()

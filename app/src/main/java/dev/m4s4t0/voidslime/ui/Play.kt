@@ -11,12 +11,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -32,23 +39,35 @@ import dev.m4s4t0.voidslime.gl.Tool
 import dev.m4s4t0.voidslime.model.Base
 import dev.m4s4t0.voidslime.model.Game
 import dev.m4s4t0.voidslime.model.Stat
+import dev.m4s4t0.voidslime.model.Toy
+import dev.m4s4t0.voidslime.model.key
 import dev.m4s4t0.voidui.BarIcon
 import dev.m4s4t0.voidui.PillButton
 import dev.m4s4t0.voidui.Void
 import dev.m4s4t0.voidui.VoidTopBar
 import kotlinx.coroutines.delay
 
+/** The toolbar: the free tools, then the toys from the shop (locked ones show their price). */
+private class ToolSlot(val tool: Tool, val emoji: String, val name: String, val toy: Toy? = null)
+
 private val TOOLS = listOf(
-    Triple(Tool.POKE, "👉", "Poke"),
-    Triple(Tool.STRETCH, "🙌", "Stretch"),
-    Triple(Tool.SQUISH, "🤲", "Squish"),
-    Triple(Tool.ROLL, "🥖", "Roll"),
-    Triple(Tool.BUBBLE, "🫧", "Bubbles"),
-)
+    ToolSlot(Tool.POKE, "👉", "Poke"),
+    ToolSlot(Tool.STRETCH, "🙌", "Stretch"),
+    ToolSlot(Tool.SQUISH, "🤲", "Squish"),
+    ToolSlot(Tool.ROLL, "🥖", "Roll"),
+    ToolSlot(Tool.BUBBLE, "🫧", "Bubbles"),
+) + Toy.entries.map { ToolSlot(Tool.valueOf(it.name), it.emoji, it.title.substringAfterLast(' ').replaceFirstChar { c -> c.uppercase() }, it) }
 
 @Composable
 fun PlayScreen(state: AppState) {
     val r = Game.current
+    var buying by remember { mutableStateOf<String?>(null) }
+    buying?.let { k ->
+        BuyDialog(k) {
+            buying = null
+            if (Game.isUnlocked(k)) TOOLS.firstOrNull { it.toy?.let(::key) == k }?.let { state.tool = it.tool }
+        }
+    }
     if (state.zen) {
         Box(Modifier.fillMaxSize()) {
             Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp).alpha(0.35f)) {
@@ -72,22 +91,24 @@ fun PlayScreen(state: AppState) {
         }
         BottomArea(Modifier.align(Alignment.BottomCenter)) {
             Row(
-                Modifier.fillMaxWidth().height(150.dp).background(Void.bg.copy(alpha = 0.92f)).padding(horizontal = 8.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                Modifier.fillMaxWidth().height(150.dp).background(Void.bg.copy(alpha = 0.92f)).horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                for ((tool, emoji, name) in TOOLS) {
-                    val on = state.tool == tool
+                for (slot in TOOLS) {
+                    val on = state.tool == slot.tool
+                    val locked = slot.toy != null && !Game.isUnlocked(key(slot.toy))
                     Column(
-                        Modifier.weight(1f).padding(horizontal = 3.dp).squishy { state.tool = tool }
+                        Modifier.width(72.dp).padding(horizontal = 3.dp).squishy { if (locked) buying = key(slot.toy!!) else state.tool = slot.tool }
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (on) Void.cyan.copy(alpha = 0.22f) else Void.panel.copy(alpha = 0.8f))
-                            .border(if (on) 2.dp else 1.dp, if (on) Void.cyan else Void.border, RoundedCornerShape(20.dp))
+                            .border(if (on) 2.dp else 1.dp, if (on) Void.cyan else if (slot.toy != null && !locked) Void.violet else Void.border, RoundedCornerShape(20.dp))
                             .padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(emoji, fontSize = 30.sp)
-                        Text(name, color = if (on) Void.text else Void.dim, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                        Text(slot.emoji, fontSize = 30.sp, modifier = Modifier.alpha(if (locked) 0.45f else 1f))
+                        if (locked) Text("🔒 ${slot.toy!!.price}", color = Void.warn, fontSize = 11.sp, maxLines = 1)
+                        else Text(slot.name, color = if (on) Void.text else Void.dim, fontSize = 12.sp, maxLines = 1, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
@@ -120,6 +141,7 @@ fun RushScreen(state: AppState) {
         val score = rush.score
         rush.result = score
         Game.best(Stat.RUSH_BEST, score.toLong())
+        Game.add(Stat.RUSHES)
         Game.earn((score + 1) / 2, score)
         Audio.play(Snd.DONE, 0.9f)
         Haptics.buzz(Haptics.Kind.SUCCESS)

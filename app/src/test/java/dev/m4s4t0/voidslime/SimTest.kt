@@ -74,4 +74,23 @@ class SimTest {
         b.extent(out)
         assertTrue("top ${out[0]}", out[0] in 0.15f..3f)
     }
+
+    @Test fun holdingTheMagnetPullsButDoesNotTear() {
+        val out = FloatArray(2)
+        for (base in listOf(Base.GLOSSY, Base.MAGNETIC, Base.JELLY)) {
+            val b = SoftBody()
+            b.setMaterial(base.mat, 1f)
+            repeat(120) { b.step(1 / 60f) }
+            b.extent(out)
+            val rest = out[0]
+            repeat(180) { b.attract(0f, rest + 0.5f, 0f, 1.3f, 48f / 60f); b.step(1 / 60f) }
+            assertTrue("$base went NaN under the magnet", finite(b))
+            b.extent(out)
+            assertTrue("$base didn't rise to the magnet", out[0] > rest + 0.05f)
+            assertTrue("$base flew off: ${out[0]}", out[0] < rest + 1.5f)
+            repeat(300) { b.step(1 / 60f) }
+            assertTrue("$base went NaN after the magnet", finite(b))
+            assertTrue("$base lost its volume", b.volume > 0f)
+        }
+    }
 }

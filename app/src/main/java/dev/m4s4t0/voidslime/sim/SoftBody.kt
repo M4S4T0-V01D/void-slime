@@ -305,6 +305,19 @@ class SoftBody(subdiv: Int = 4) {
         }
     }
 
+    /** Pulls the points within [radius] of (x, y, z) towards it (the magnet), harder the closer they are. */
+    fun attract(x: Float, y: Float, z: Float, radius: Float, strength: Float) {
+        for (i in 0 until n) {
+            val o = i * 3
+            val dx = x - pos[o]; val dy = y - pos[o + 1]; val dz = z - pos[o + 2]
+            val d = sqrt(dx * dx + dy * dy + dz * dz)
+            if (d < radius && d > 0.06f) {
+                val w = (1f - d / radius).let { it * it } * strength / d
+                vel[o] += dx * w; vel[o + 1] += dy * w; vel[o + 2] += dz * w
+            }
+        }
+    }
+
     // ---- picking ----
 
     class Hit(val t: Float, val tri: Int, val u: Float, val v: Float, val x: Float, val y: Float, val z: Float)
@@ -407,7 +420,7 @@ class SoftBody(subdiv: Int = 4) {
             plastic = lerp(a.plastic, b.plastic, t), relax = lerp(a.relax, b.relax, t), volumeK = lerp(a.volumeK, b.volumeK, t),
             gravity = lerp(a.gravity, b.gravity, t), maxStretch = lerp(a.maxStretch, b.maxStretch, t),
             alpha = lerp(min(a.alpha, b.alpha + 0.3f), b.alpha, t), gloss = lerp(a.gloss, b.gloss, t), fluff = b.fluff * t,
-            metal = b.metal * t, holo = b.holo * t, glow = b.glow * t, frost = b.frost * t, crunchy = b.crunchy && t > 0.9f,
+            metal = b.metal * t, holo = b.holo * t, glow = b.glow * t, frost = b.frost * t, galaxy = b.galaxy * t, thermo = b.thermo * t, crunchy = b.crunchy && t > 0.9f,
         )
     }
 }

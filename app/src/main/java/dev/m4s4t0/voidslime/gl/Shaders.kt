@@ -65,6 +65,9 @@ uniform float uMetal;
 uniform float uHolo;
 uniform float uGlow;
 uniform float uFrost;
+uniform float uGalaxy;
+uniform float uThermo;
+uniform float uHeat;
 uniform vec4 uGlitter;
 uniform float uTime;
 uniform float uBack;
@@ -91,6 +94,17 @@ void main() {
     if (uCount > 2.5) base = mix(base, uC2, clamp((s2 - 0.55) * sharp + 0.5, 0.0, 1.0));
     vec3 avg = uCount > 2.5 ? (uC0 + uC1 + uC2) / 3.0 : (uCount > 1.5 ? (uC0 + uC1) * 0.5 : uC0);
     base = mix(base, avg, uMix * uMix * 0.9);
+    if (uThermo > 0.0) {
+        // Warms in patches as it's played with: the dye turns to its "hot" colour, then cools back.
+        vec3 warm = mix(base.gbr, vec3(1.0, 0.45, 0.7), 0.3);
+        float t = clamp((uHeat * 1.4 - noise(p * 2.6 + 7.0)) * 3.0, 0.0, 1.0);
+        base = mix(base, warm, t * uThermo);
+    }
+    if (uGalaxy > 0.0) {
+        float neb = smoothstep(0.35, 0.85, noise(w * 0.9 + 3.0));
+        vec3 cloud = mix(base, hue(fract(noise(p * 3.0) * 0.6 + 0.7)), 0.35);
+        base = mix(base, base * 0.16 + vec3(0.02, 0.0, 0.05) + cloud * neb * 0.65, uGalaxy);
+    }
 
     float ndl = dot(n, uLight);
     float diff = clamp((ndl + 0.35) / 1.35, 0.0, 1.0);
@@ -125,6 +139,15 @@ void main() {
             float tw = pow(max(dot(reflect(-uLight, rn), v), 0.0), 18.0) * (0.6 + 0.4 * sin(uTime * 4.0 + hr * 80.0));
             vec3 gc = uGlitter.r < 0.0 ? hue(hash(id + 9.1)) : uGlitter.rgb;
             col += gc * smoothstep(0.38, 0.05, d) * (tw * 5.0 + 0.25) * max(uRoom, 0.35);
+        }
+    }
+    if (uGalaxy > 0.0) {
+        vec3 sq = p * 34.0;
+        vec3 sid = floor(sq);
+        float hs = hash(sid + 4.2);
+        if (hs > 0.9) {
+            float tw = 0.55 + 0.45 * sin(uTime * 3.0 + hs * 90.0);
+            col += vec3(1.0, 0.95, 0.9) * smoothstep(0.24, 0.0, length(fract(sq) - 0.5)) * tw * 1.5 * uGalaxy;
         }
     }
     float alpha = 1.0;
@@ -278,11 +301,19 @@ void main() {
         vec2 q = rp * vec2(1.0, 2.0);
         d = (length(q) - 0.85) / 2.0;
         col = col * (0.8 + 0.3 * rp.y);
-    } else {                       // spark (particles)
+    } else if (vShape < 9.5) {     // spark (particles)
         float r = length(p);
         d = r - 0.95;
         a = exp(-r * r * 4.0);
         col = col + vec3(0.4) * exp(-r * r * 16.0);
+    } else if (vShape < 10.5) {    // flower: five round petals and a yellow middle
+        float r = length(rp);
+        float ang = atan(rp.y, rp.x);
+        d = r - (0.62 + 0.3 * abs(cos(ang * 2.5)));
+        col = r < 0.26 ? vec3(1.0, 0.82, 0.25) : col * (0.8 + 0.3 * r);
+    } else {                       // crescent moon
+        d = max(length(rp) - 0.85, -(length(rp - vec2(0.38, 0.22)) - 0.68));
+        col = col * (0.85 + 0.3 * (1.0 - length(p)));
     }
     float cover = clamp(0.5 - d / aa, 0.0, 1.0);
     if (cover * a * vCol.a < 0.01) discard;

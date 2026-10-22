@@ -97,6 +97,7 @@ fun HomeScreen(state: AppState) {
                 Tile("🖐️", "Play", "Squish, stretch, pop", Modifier.weight(1f), Void.violet) { state.go(Screen.PLAY) }
                 Tile("🧪", "Slime lab", "Make a new slime", Modifier.weight(1f), Void.cyan) { state.lab.startNew(); state.go(Screen.LAB) }
             }
+            ChallengesCard { state.go(Screen.PLAY) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Tile("🛎️", "Slime shop", "${Game.orders.size} customers waiting", Modifier.weight(1f), Void.warn, badge = "${Game.orders.size}") { state.go(Screen.SHOP) }
                 Tile("🫧", "Bubble rush", "Best: ${Game.stats[Stat.RUSH_BEST] ?: 0}", Modifier.weight(1f), Void.ok) { state.rush.result = null; state.go(Screen.RUSH) }

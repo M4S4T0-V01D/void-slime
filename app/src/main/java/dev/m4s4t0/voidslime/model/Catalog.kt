@@ -28,6 +28,10 @@ data class Material(
     val holo: Float = 0f,
     val glow: Float = 0f,
     val frost: Float = 0f,
+    /** Dark sky with a nebula and twinkling stars in it. */
+    val galaxy: Float = 0f,
+    /** Changes colour as it warms up while you play with it, and cools back. */
+    val thermo: Float = 0f,
     /** Squishing it crunches by itself (Icee). */
     val crunchy: Boolean = false,
 )
@@ -51,6 +55,16 @@ enum class Base(val title: String, val emoji: String, val blurb: String, val pri
         Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 1f, gloss = 1f, holo = 1f)),
     GLOW("Glow", "✨", "Glows in the dark: turn the lights off", 350,
         Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 0.85f, gloss = 0.9f, glow = 1f)),
+    FLOAM("Floam", "🫘", "Packed with beads, crunches everywhere", 220,
+        Material(shapeK = 20f, edgeK = 1600f, damping = 4.8f, plastic = 0.7f, relax = 0.22f, volumeK = 38f, gravity = 1.2f, maxStretch = 1.5f, alpha = 1f, gloss = 0.35f, fluff = 0.45f, crunchy = true)),
+    PEARL("Pearl", "🐚", "Soft pearly shimmer, silky smooth", 260,
+        Material(shapeK = 24f, edgeK = 1500f, damping = 3.4f, plastic = 0.4f, relax = 0.4f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.2f, alpha = 1f, gloss = 0.9f, metal = 0.3f, holo = 0.3f)),
+    MAGNETIC("Magnetic", "🧲", "Iron slime: the magnet toy loves it", 320,
+        Material(shapeK = 20f, edgeK = 1500f, damping = 3.6f, plastic = 0.5f, relax = 0.35f, volumeK = 34f, gravity = 1.7f, maxStretch = 2.4f, alpha = 1f, gloss = 0.85f, metal = 0.55f)),
+    THERMO("Thermo", "🌡️", "Changes colour as you play with it", 380,
+        Material(shapeK = 26f, edgeK = 1400f, damping = 3.2f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.3f, alpha = 1f, gloss = 0.8f, thermo = 1f)),
+    GALAXY("Galaxy", "🌌", "A night sky full of stars", 420,
+        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.4f, alpha = 1f, gloss = 1f, galaxy = 1f)),
     ;
 
     val id get() = name.lowercase()
@@ -87,12 +101,26 @@ val COLORS = listOf(
     SlimeColor("blush", "Blush", 0xFFFFD1DC, 100),
     SlimeColor("coal", "Coal", 0xFF2A2730, 120),
     SlimeColor("neon", "Neon pink", 0xFFFF2BD6, 150),
+    SlimeColor("sunset", "Sunset", 0xFFFF5E3A, 60),
+    SlimeColor("blueberry", "Blueberry", 0xFF4F46E5, 60),
+    SlimeColor("ruby", "Ruby", 0xFFE0115F, 80),
+    SlimeColor("emerald", "Emerald", 0xFF10B981, 80),
+    SlimeColor("aqua", "Aqua", 0xFF00E5D4, 80),
+    SlimeColor("lilac", "Lilac", 0xFFE0B0FF, 80),
+    SlimeColor("milktea", "Milk tea", 0xFFD2B48C, 100),
+    SlimeColor("cocoa", "Cocoa", 0xFF6B4226, 100),
+    SlimeColor("pistachio", "Pistachio", 0xFFC5E384, 100),
+    SlimeColor("flamingo", "Flamingo", 0xFFFF8FAB, 120),
+    SlimeColor("sunflower", "Sunflower", 0xFFFFC233, 120),
+    SlimeColor("electric", "Electric blue", 0xFF0066FF, 150),
+    SlimeColor("cosmic", "Cosmic purple", 0xFF3B0A6B, 150),
+    SlimeColor("toxic", "Toxic green", 0xFF7CFF00, 180),
 )
 
 fun colorOf(id: String) = COLORS.firstOrNull { it.id == id } ?: COLORS.first()
 
-/** What the add-in sprite looks like (the point-sprite shader's shape number). */
-enum class Shape { BEAD, STAR, HEART, SPRINKLE, SLICE, FLAKE, CRYSTAL, GLASS, DISC }
+/** What the add-in sprite looks like (the point-sprite shader's shape number; SPARK is the particles' glow). */
+enum class Shape { BEAD, STAR, HEART, SPRINKLE, SLICE, FLAKE, CRYSTAL, GLASS, DISC, SPARK, FLOWER, MOON }
 
 enum class AddIn(
     val title: String,
@@ -116,6 +144,12 @@ enum class AddIn(
     FRUIT("Fruit slices", "🍊", Shape.SLICE, 0.14f, false, 140, listOf(0xFFFF9F1C, 0xFFFFE14D, 0xFFFF4D6D, 0xFF8BE04E)),
     SNOW("Snowflakes", "❄️", Shape.FLAKE, 0.11f, false, 160, listOf(0xFFFFFFFF, 0xFFDDF3FF)),
     CONFETTI("Confetti", "🎉", Shape.DISC, 0.07f, false, 180, emptyList()),
+    MICRO("Micro beads", "🔘", Shape.BEAD, 0.045f, true, 130, listOf(0xFFFFFFFF, 0xFFE8F6FF, 0xFFFFEAF6)),
+    DAISIES("Daisies", "🌼", Shape.FLOWER, 0.13f, false, 150, listOf(0xFFFFFFFF, 0xFFFFE066, 0xFFFF9EC7, 0xFFC9A8FF)),
+    MOONS("Moons", "🌙", Shape.MOON, 0.11f, false, 170, listOf(0xFFFFD36B, 0xFFFFF6D8)),
+    GOLDLEAF("Gold leaf", "🟡", Shape.DISC, 0.085f, false, 190, listOf(0xFFFFD36B, 0xFFFFE9A8, 0xFFE8B04B)),
+    GEMS("Rhinestones", "💠", Shape.CRYSTAL, 0.09f, true, 200, emptyList()),
+    GUMMIES("Gummy worms", "🪱", Shape.SPRINKLE, 0.17f, false, 210, listOf(0xFFFF4D6D, 0xFFFFE14D, 0xFF8BE04E, 0xFFFF8A3D, 0xFF3DA5FF)),
     ;
 
     val id get() = name.lowercase()
@@ -135,6 +169,10 @@ enum class Glitter(val title: String, val argb: Long, val price: Int) {
     GOLD("Gold", 0xFFFFD36B, 60),
     ROSE("Rose", 0xFFFF9ECF, 90),
     RAINBOW("Rainbow", 0, 150),
+    AQUA("Aqua", 0xFF7DF9FF, 70),
+    VIOLET("Violet", 0xFFB98CFF, 70),
+    EMERALD("Emerald", 0xFF5BF5A0, 90),
+    COPPER("Copper", 0xFFE08A4F, 100),
     ;
 
     val id get() = name.lowercase()
@@ -152,6 +190,11 @@ enum class Tray(val title: String, val emoji: String, val argb: Long, val gloss:
     MINT("Mint", "🌿", 0xFFA8F0D0, 0.5f, 120),
     WOOD("Wood", "🪵", 0xFFB07A4A, 0.25f, 160),
     NEON("Neon", "💜", 0xFF14101F, 1f, 220),
+    CANDY("Cotton candy", "🍭", 0xFFD9B8FF, 0.6f, 140),
+    SUNSET("Sunset", "🌅", 0xFFFF9A6B, 0.5f, 160),
+    ICE("Ice", "🧊", 0xFFCFEFFF, 1f, 180),
+    STARRY("Starry night", "🌠", 0xFF0B0820, 1f, 260),
+    GOLD("Gold", "👑", 0xFFE8C46A, 0.9f, 300),
     ;
 
     val id get() = name.lowercase()
@@ -159,4 +202,17 @@ enum class Tray(val title: String, val emoji: String, val argb: Long, val gloss:
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id } ?: VOID
     }
+}
+
+/** Extra play tools from the shop (the free ones, Poke to Bubbles, are always there). Names match gl.Tool. */
+enum class Toy(val title: String, val emoji: String, val blurb: String, val price: Int) {
+    SLAP("Slap", "🖐️", "Give it a big wobbly smack", 60),
+    RAKE("Rake", "🍴", "Drag grooves through it, so satisfying", 120),
+    STAMP("Star stamp", "⭐", "Press a star into it", 160),
+    SHAKER("Sprinkle shaker", "🧂", "Shake sprinkles all over it", 140),
+    MAGNET("Magnet", "🧲", "Pull the slime up into spikes (Magnetic slime loves it)", 250),
+    WAND("Bubble wand", "🪄", "Tap to blow a cloud of bubbles, some golden", 300),
+    ;
+
+    val id get() = name.lowercase()
 }

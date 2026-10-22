@@ -46,6 +46,8 @@ class Scene(private val listener: SceneListener) {
     var mix = 0f; private set
     var time = 0f; private set
     var room = 1f; private set
+    /** How warm the slime is from being played with (0..1): Thermo slime changes colour with it. */
+    var heat = 0f; private set
 
     var tool = Tool.POKE
         set(v) { if (v != field) { releaseAll(); field = v } }
@@ -63,6 +65,7 @@ class Scene(private val listener: SceneListener) {
     internal val items = ArrayList<Item>()
     internal val bubbles = ArrayList<Bubble>()
     internal val particles = ArrayList<Particle>()
+    internal var props: List<Prop> = emptyList(); private set
     private val touches = LinkedHashMap<Int, Touch>()
     val palm = PlateCollider().apply { active = false }
     val pin = RollerCollider().apply { active = false }
@@ -233,6 +236,49 @@ class Scene(private val listener: SceneListener) {
                 t.kind = Kind.BUBBLE
                 Audio.play(Snd.BLOW, 0.5f, 1f, pan(x))
             }
+            Tool.SLAP -> slap(t, x)
+            Tool.RAKE -> body.raycast(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2])?.let { h ->
+                t.kind = Kind.RAKE
+                t.depth = h.t
+                t.balls = List(4) { SphereCollider(h.x, h.y, h.z, 0.075f) }
+                body.colliders += t.balls
+                t.px = h.x; t.py = h.y; t.pz = h.z
+                aimRake(t)
+                Audio.play(Snd.SQUISH, 0.45f, 1.25f, pan(x))
+                Haptics.buzz(Haptics.Kind.TICK, 0.5f)
+            }
+            Tool.STAMP -> if (touches.values.none { it.kind == Kind.STAMP }) planeY(0.3f)?.takeIf { hypot(it[0], it[2]) < 2.3f }?.let { p ->
+                body.extent(ext)
+                t.kind = Kind.STAMP
+                t.level = ext[0] + 0.05f
+                t.px = clampR(p[0], p[2], 1.3f, 0); t.pz = clampR(p[0], p[2], 1.3f, 2)
+                t.angle = atan2(-cos(yaw), -sin(yaw))
+                t.balls = buildList {
+                    add(SphereCollider(0f, 0f, 0f, 0.11f))
+                    for (k in 0 until 5) for (d in 1..3) add(SphereCollider(0f, 0f, 0f, 0.1f - d * 0.016f))
+                }
+                body.colliders += t.balls
+                placeStamp(t)
+            }
+            Tool.SHAKER -> {
+                body.extent(ext)
+                t.level = ext[0] + 1.3f
+                planeY(t.level)?.let { p ->
+                    t.kind = Kind.SHAKER
+                    t.px = clampR(p[0], p[2], 2f, 0); t.py = t.level; t.pz = clampR(p[0], p[2], 2f, 2)
+                }
+            }
+            Tool.MAGNET -> {
+                body.extent(ext)
+                t.level = ext[0] + 0.5f
+                planeY(t.level)?.let { p ->
+                    t.kind = Kind.MAGNET
+                    t.px = clampR(p[0], p[2], 1.8f, 0); t.py = t.level; t.pz = clampR(p[0], p[2], 1.8f, 2)
+                    Audio.play(Snd.CLICK, 0.6f, 0.6f, pan(x))
+                    Haptics.buzz(Haptics.Kind.TICK, 0.6f)
+                }
+            }
+            Tool.WAND -> wand(x)
             Tool.STIR -> planeY(0.1f)?.takeIf { hypot(it[0], it[2]) < 2.1f }?.let { p ->
                 t.kind = Kind.STIR
                 val c = SphereCollider(clampR(p[0], p[2], 1.7f, 0), 0.12f, clampR(p[0], p[2], 1.7f, 2), 0.2f)
@@ -275,6 +321,12 @@ class Scene(private val listener: SceneListener) {
                     Haptics.buzz(Haptics.Kind.TICK, 0.25f + pull * 0.2f)
                     Audio.play(Snd.STRETCH, 0.35f + min(0.4f, pull * 0.2f), 1.15f - pull * 0.12f, pan(x), 260)
                 } else if (pull < t.tickAt - 0.2f) t.tickAt = pull
+            }
+            Kind.RAKE -> aimRake(t)
+            Kind.STAMP -> Unit
+            Kind.SHAKER, Kind.MAGNET -> planeY(t.level)?.let { p ->
+                val r = if (t.kind == Kind.SHAKER) 2f else 1.8f
+                t.px = clampR(p[0], p[2], r, 0); t.pz = clampR(p[0], p[2], r, 2)
             }
             Kind.PALM -> planeY(0.3f)?.let { p -> palm.x = clampR(p[0], p[2], 1.4f, 0); palm.z = clampR(p[0], p[2], 1.4f, 2) }
             Kind.PIN -> planeY(pin.y)?.let { p ->
@@ -344,6 +396,35 @@ class Scene(private val listener: SceneListener) {
                 b.vy = 0.2f
             }
             Kind.STIR -> t.finger?.let { body.colliders.remove(it) }
+            Kind.RAKE -> {
+                body.colliders.removeAll(t.balls.toSet())
+                Audio.play(Snd.RELEASE, 0.5f, 1.15f, pan(t.x))
+                if (t.rolled > 0.6f) stat(Stat.RAKES)
+            }
+            Kind.STAMP -> {
+                body.colliders.removeAll(t.balls.toSet())
+                body.extent(ext)
+                if (t.counted) {
+                    stat(Stat.STAMPS)
+                    Audio.play(Snd.RELEASE, 0.7f, 0.85f, pan(t.x))
+                    Audio.play(Snd.PLIP, 0.5f, 1.4f, pan(t.x))
+                    Haptics.buzz(Haptics.Kind.POP, 0.5f)
+                    // The print it leaves, which fades after a few seconds.
+                    val d = hypot(t.px - body.cx, t.pz - body.cz) / max(ext[1], 0.1f)
+                    val print = spawn(t.px, ext[0] * sqrt(max(0f, 1f - d * d)) + 0.03f, t.pz, 0f, 0.6f)
+                    print.size = 0.62f; print.shape = 1f; print.angle = 0f
+                    print.vx = 0f; print.vy = 0f; print.vz = 0f; print.gravity = 0f
+                    print.lands = true; print.landed = true
+                    print.max = 4f; print.life = print.max
+                    val c = rgb(colorOf(recipe.colors.first()).argb)
+                    print.r = 0.55f + c[0] * 0.45f; print.g = 0.55f + c[1] * 0.45f; print.b = 0.55f + c[2] * 0.45f
+                    repeat(12) {
+                        val p = spawn(t.px, ext[0] + 0.1f, t.pz, 1.4f, 0.08f)
+                        p.shape = 1f
+                        p.r = 1f; p.g = 0.85f + rnd.nextFloat() * 0.15f; p.b = 0.4f + rnd.nextFloat() * 0.5f
+                    }
+                }
+            }
             else -> Unit
         }
         t.kind = Kind.DONE
@@ -354,6 +435,147 @@ class Scene(private val listener: SceneListener) {
         ray(t.x, t.y)
         val s = t.depth + t.press
         c.x = ro[0] + rd[0] * s; c.y = max(0.05f, ro[1] + rd[1] * s); c.z = ro[2] + rd[2] * s
+    }
+
+    /** Rake: four tines in a row across the screen, following the finger like Poke does. */
+    private fun aimRake(t: Touch) {
+        ray(t.x, t.y)
+        val s = t.depth + t.press
+        val cx = ro[0] + rd[0] * s; val cy = max(0.06f, ro[1] + rd[1] * s); val cz = ro[2] + rd[2] * s
+        t.rolled += sqrt(sq(cx - t.px) + sq(cz - t.pz))
+        t.px = cx; t.py = cy; t.pz = cz
+        val ax = cos(yaw); val az = -sin(yaw)
+        t.balls.forEachIndexed { i, b ->
+            val o = (i - 1.5f) * 0.17f
+            b.x = cx + ax * o; b.y = cy; b.z = cz + az * o
+        }
+    }
+
+    /** Star stamp: a star of balls, all with their bottoms on the stamp's face at [Touch.level]. */
+    private fun placeStamp(t: Touch) {
+        val c = t.balls.first()
+        c.x = t.px; c.y = t.level + c.r; c.z = t.pz
+        var i = 1
+        for (k in 0 until 5) {
+            val a = t.angle + k * 2f * PI.toFloat() / 5f
+            for (d in 1..3) {
+                val b = t.balls[i++]
+                b.x = t.px + cos(a) * d * 0.13f; b.y = t.level + b.r; b.z = t.pz + sin(a) * d * 0.13f
+            }
+        }
+    }
+
+    private fun slap(t: Touch, x: Float) {
+        t.kind = Kind.DONE
+        val h = body.raycast(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2])
+        if (h == null) {
+            Audio.play(Snd.TAP, 0.5f, 0.8f, pan(x))
+            return
+        }
+        body.impulseAt(h.x, h.y, h.z, 0.85f, rd[0] * 2f, -4.5f, rd[2] * 2f)
+        body.impulseAt(body.cx, body.cy, body.cz, 2.5f, 0f, 0.6f, 0f)
+        heat = min(1f, heat + 0.04f)
+        Audio.play(Snd.SLAP, 1f, 0.85f + rnd.nextFloat() * 0.3f, pan(x), 60)
+        Audio.play(Snd.SQUISH, 0.5f, 0.8f, pan(x), 60)
+        Haptics.buzz(Haptics.Kind.THUD, 1f)
+        stat(Stat.SLAPS)
+        val c = rgb(colorOf(recipe.colors.first()).argb)
+        repeat(10) {
+            val p = spawn(h.x, h.y + 0.05f, h.z, 2f, 0.06f)
+            p.shape = 0f
+            p.r = c[0]; p.g = c[1]; p.b = c[2]
+        }
+    }
+
+    /** Bubble wand: a little cloud of bubbles from where you tap, some of them golden. */
+    private fun wand(x: Float) {
+        body.extent(ext)
+        val h = body.raycast(ro[0], ro[1], ro[2], rd[0], rd[1], rd[2])
+        val p = h?.let { floatArrayOf(it.x, it.y, it.z) } ?: planeY(ext[0] * 0.6f) ?: return
+        val n = 6 + rnd.nextInt(5)
+        repeat(n) {
+            val b = Bubble(rnd.nextFloat())
+            b.growing = false
+            b.x = p[0] + (rnd.nextFloat() - 0.5f) * 0.6f
+            b.y = max(0.15f, p[1] + 0.1f + rnd.nextFloat() * 0.35f)
+            b.z = p[2] + (rnd.nextFloat() - 0.5f) * 0.6f
+            b.r = 0.07f + rnd.nextFloat() * 0.12f
+            b.vy = 0.3f + rnd.nextFloat() * 0.3f
+            b.gold = rnd.nextFloat() < 0.12f
+            bubbles += b
+        }
+        while (bubbles.size > 40) bubbles.removeAt(0)
+        Audio.play(Snd.BLOW, 0.6f, 1.3f, pan(x))
+        Audio.play(Snd.BLOP, 0.4f, 1.5f, pan(x))
+        Haptics.buzz(Haptics.Kind.TICK, 0.5f)
+        stat(Stat.WANDS)
+    }
+
+    private fun updateToys(dt: Float) {
+        val out = ArrayList<Prop>()
+        for (t in touches.values) when (t.kind) {
+            Kind.RAKE -> {
+                t.press = min(0.34f, t.press + dt * 1.1f)
+                aimRake(t)
+                for (b in t.balls) out += Prop(b.x, b.y, b.z, b.r, STEEL)
+            }
+            Kind.STAMP -> {
+                body.extent(ext)
+                t.level = max(0.12f, t.level - dt * 1.4f)
+                placeStamp(t)
+                if (!t.counted && t.level < ext[0] - 0.12f && t.balls.sumOf { it.contacts } > 30) t.counted = true
+                for (b in t.balls) out += Prop(b.x, b.y, b.z, b.r, STAMP_PINK)
+            }
+            Kind.SHAKER -> {
+                t.clock += dt
+                // Faster shaking, more sprinkles.
+                val rate = 22f + min(60f, t.travel * 0.15f)
+                t.travel = 0f
+                t.press += rate * dt
+                while (t.press >= 1f) {
+                    t.press -= 1f
+                    val p = spawn(t.px + (rnd.nextFloat() - 0.5f) * 0.18f, t.py - 0.1f, t.pz + (rnd.nextFloat() - 0.5f) * 0.18f, 0f, 0.075f)
+                    p.vx = (rnd.nextFloat() - 0.5f) * 0.6f; p.vy = -0.6f; p.vz = (rnd.nextFloat() - 0.5f) * 0.6f
+                    p.gravity = 4.5f
+                    p.shape = if (rnd.nextFloat() < 0.15f) 1f else 3f
+                    p.max = 5f; p.life = p.max
+                    p.lands = true
+                    val c = rgb(SPRINKLES[rnd.nextInt(SPRINKLES.size)])
+                    p.r = c[0]; p.g = c[1]; p.b = c[2]
+                }
+                if (t.clock - t.tickTurn > 0.22f) {
+                    t.tickTurn = t.clock
+                    Audio.play(Snd.SWISH, 0.25f, 1.6f + rnd.nextFloat() * 0.3f, pan(t.x), 150)
+                    Haptics.buzz(Haptics.Kind.TICK, 0.2f)
+                }
+                if (t.clock.toInt() > t.ticks) { t.ticks = t.clock.toInt(); stat(Stat.SHAKES) }
+                out += Prop(t.px, t.py + 0.1f, t.pz, 0.14f, SHAKER_WHITE)
+                out += Prop(t.px, t.py + 0.26f, t.pz, 0.09f, STEEL)
+            }
+            Kind.MAGNET -> {
+                t.clock += dt
+                val m = body.mat
+                val pull = 24f * (if (recipe.base == dev.m4s4t0.voidslime.model.Base.MAGNETIC) 2f else 1f + m.metal * 0.5f)
+                body.attract(t.px, t.py, t.pz, 1.3f, pull * dt)
+                heat = min(1f, heat + dt * 0.1f)
+                if (rnd.nextFloat() < dt * 25f) {
+                    val p = spawn(t.px + (rnd.nextFloat() - 0.5f) * 0.4f, t.py - 0.2f, t.pz + (rnd.nextFloat() - 0.5f) * 0.4f, 0.4f, 0.05f)
+                    p.vx = (t.px - p.x) * 2f; p.vy = 0.8f; p.vz = (t.pz - p.z) * 2f
+                    p.gravity = 0f
+                    p.r = 0.6f; p.g = 0.85f; p.b = 1f
+                }
+                if (t.clock - t.tickTurn > 0.35f) {
+                    t.tickTurn = t.clock
+                    Haptics.buzz(Haptics.Kind.TICK, 0.3f)
+                    Audio.play(Snd.STRETCH, 0.2f, 0.6f, pan(t.x), 300)
+                }
+                if (t.clock.toInt() > t.ticks) { t.ticks = t.clock.toInt(); stat(Stat.MAGNET) }
+                out += Prop(t.px, t.py + 0.12f, t.pz, 0.16f, MAGNET_RED)
+                out += Prop(t.px, t.py - 0.02f, t.pz, 0.09f, STEEL)
+            }
+            else -> Unit
+        }
+        props = out
     }
 
     private fun snap(t: Touch) {
@@ -391,6 +613,10 @@ class Scene(private val listener: SceneListener) {
         Audio.play(if (big) Snd.BIG_POP else Snd.POP, 0.8f, (1.5f - b.r * 1.2f).coerceIn(0.7f, 1.6f), 0f, 15)
         Haptics.buzz(Haptics.Kind.POP, if (big) 1f else 0.6f)
         stat(Stat.POPS)
+        if (b.gold && mode != SceneMode.RUSH) {
+            stat(Stat.GOLD_POPS)
+            Audio.play(Snd.COIN, 0.5f, 1.2f)
+        }
         val n = if (big) 26 else 14
         repeat(n) {
             val a = it * 2f * PI.toFloat() / n
@@ -473,6 +699,7 @@ class Scene(private val listener: SceneListener) {
     }
 
     private fun updateParticles(dt: Float) {
+        body.extent(ext)
         val it = particles.iterator()
         val drag = exp(-1.6f * dt)
         while (it.hasNext()) {
@@ -482,8 +709,18 @@ class Scene(private val listener: SceneListener) {
             p.vy -= p.gravity * dt
             p.vx *= drag; p.vy *= drag; p.vz *= drag
             p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt
+            if (p.lands && !p.landed) {
+                // Lands on the dome of the slime (roughly its shape) and stays there a while.
+                val d = hypot(p.x - body.cx, p.z - body.cz) / max(ext[1], 0.1f)
+                val top = if (d < 1f) ext[0] * sqrt(1f - d * d) else 0f
+                if (p.y <= top) {
+                    p.y = top; p.vx = 0f; p.vy = 0f; p.vz = 0f; p.gravity = 0f
+                    p.landed = true
+                    Audio.play(Snd.PLIP, 0.12f, 1.5f + rnd.nextFloat() * 0.6f, 0f, 70)
+                }
+            }
             if (p.y < 0.01f) { p.y = 0.01f; p.vy = abs(p.vy) * 0.3f }
-            p.angle += dt * 3f
+            if (!p.landed) p.angle += dt * 3f
         }
     }
 
@@ -603,6 +840,9 @@ class Scene(private val listener: SceneListener) {
             Kind.PIN -> pin.y = max(pin.r + 0.07f, pin.y - dt * 2f)
             else -> Unit
         }
+        updateToys(dt)
+        val working = touches.values.any { it.kind in WORKING }
+        heat = if (working) min(1f, heat + dt * 0.16f) else max(0f, heat - dt * 0.04f)
         body.step(dt)
         if (mode != SceneMode.LAB) mix = min(0.75f, mix + body.agitation * dt * 0.1f)
         for (t in touches.values) {
@@ -610,6 +850,7 @@ class Scene(private val listener: SceneListener) {
                 Kind.FINGER, Kind.STIR -> t.finger?.let { feel(t, it, it.x, it.y, it.z, dt) }
                 Kind.PALM -> feel(t, palm, palm.x, palm.y, palm.z, dt)
                 Kind.PIN -> feel(t, pin, pin.x, pin.y, pin.z, dt)
+                Kind.RAKE, Kind.STAMP -> t.balls.getOrNull(if (t.kind == Kind.RAKE) 1 else 0)?.let { feel(t, it, it.x, it.y, it.z, dt) }
                 else -> Unit
             }
         }
@@ -669,6 +910,12 @@ class Scene(private val listener: SceneListener) {
         const val MAX_BUBBLE = 0.72f
         const val MAX_PARTICLES = 400
         val STIR_TOTAL = (6 * 2 * PI).toFloat()
+        private val WORKING = setOf(Kind.FINGER, Kind.GRAB, Kind.PALM, Kind.PIN, Kind.STIR, Kind.RAKE, Kind.STAMP, Kind.MAGNET)
+        private val STEEL = floatArrayOf(0.82f, 0.85f, 0.9f)
+        private val STAMP_PINK = floatArrayOf(1f, 0.62f, 0.86f)
+        private val SHAKER_WHITE = floatArrayOf(0.95f, 0.95f, 1f)
+        private val MAGNET_RED = floatArrayOf(0.92f, 0.16f, 0.22f)
+        private val SPRINKLES = listOf(0xFFFF4D8D, 0xFFFFE066, 0xFF22E3FF, 0xFF6EF2B4, 0xFFA970FF, 0xFFFF8A3D, 0xFFFFFFFF)
         val LIGHT = floatArrayOf(-0.45f, 0.85f, 0.5f).let { v -> val l = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); floatArrayOf(v[0] / l, v[1] / l, v[2] / l) }
 
         private fun sq(x: Float) = x * x
