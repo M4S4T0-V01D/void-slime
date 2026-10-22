@@ -62,7 +62,7 @@ import dev.m4s4t0.voidui.CosmicBackground
 import dev.m4s4t0.voidui.Void
 import kotlinx.coroutines.delay
 
-enum class Screen { HOME, PLAY, LAB, RUSH, SHOP, SHELF, STICKERS, SETTINGS }
+enum class Screen { HOME, PLAY, LAB, RUSH, RACE, SHOP, SHELF, STICKERS, SETTINGS }
 
 /** Shared between the screens and the 3D view. */
 class AppState(val view: SlimeView) {
@@ -136,6 +136,7 @@ fun SlimeAppUi() {
     LaunchedEffect(Game.tray) { view.renderer.tray = Game.tray }
     LaunchedEffect(Game.world) { view.renderer.world = Game.world }
     LaunchedEffect(Game.plate) { view.renderer.plate = Game.plate }
+    LaunchedEffect(Game.vessel) { view.renderer.vessel = Game.vessel }
     // Each world has its own little song; the rush has a faster one.
     LaunchedEffect(screen, Game.world) { Audio.song = if (screen == Screen.RUSH) Song.RUSH else Song.valueOf(Game.world.name) }
     val recipe: Recipe = if (screen == Screen.LAB) state.lab.draft else Game.current
@@ -167,6 +168,8 @@ fun SlimeAppUi() {
         while (true) {
             delay(10_000)
             if (holder[0]?.screen in SCENE_SCREENS) Game.add(Stat.SECONDS, 10)
+            // Rush customers who waited too long leave; new ones come in.
+            if (Game.topUpOrders()) holder[0]?.toasts?.add(Toast(System.nanoTime(), "timer", "A rush customer gave up waiting", "New customers are at the shop"))
             Game.flush()
         }
     }
@@ -227,6 +230,7 @@ fun SlimeAppUi() {
             Screen.PLAY -> PlayScreen(state)
             Screen.LAB -> LabScreen(state)
             Screen.RUSH -> RushScreen(state)
+            Screen.RACE -> RaceScreen(state)
             Screen.SHOP -> ShopScreen(state)
             Screen.SHELF -> ShelfScreen(state)
             Screen.STICKERS -> StickersScreen(state)

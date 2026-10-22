@@ -4,9 +4,11 @@ import dev.m4s4t0.voidslime.model.Material
 import dev.m4s4t0.voidslime.model.Mold
 import dev.m4s4t0.voidslime.model.Plate
 import dev.m4s4t0.voidslime.model.Shapes
+import dev.m4s4t0.voidslime.model.Vessel
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.cbrt
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -19,7 +21,9 @@ import kotlin.math.sqrt
  *  - volume: squash it and pressure pushes the sides out;
  *  - plasticity: dents and stretches beyond a small yield flow into the resting shape, which then slowly settles
  *    back into a dome, so slime holds a squish for a moment like the real thing.
- * Tools act through colliders (finger, palm, rolling pin) and grabs (stretching). Units: the dome is about 1 across.
+ * Tools act through colliders (finger, palm, rolling pin) and grabs (stretching). Sculpting colliders (the rake, the
+ * stamp) press their shape straight into the resting shape and it holds a while. Blisters blow air into the skin; the
+ * [amount] shrinks as droplets break off and grows back as they return. Units: the dome is about 1 across.
  * Not thread-safe: the renderer steps it on the GL thread.
  */
 class SoftBody(subdiv: Int = 4) {
@@ -37,6 +41,14 @@ class SoftBody(subdiv: Int = 4) {
     /** The shape it settles into, relative to its centre. */
     private val nat = FloatArray(n * 3)
     private val restLen = FloatArray(edgeCount)
+    /** Seconds left that a sculpted point keeps its new shape before slowly settling. */
+    private val hold = FloatArray(n)
+    /** The blisters' air: offsets added to the natural shape. */
+    private val air = FloatArray(n * 3)
+    private val airNext = FloatArray(n * 3)
+    private val scratch = FloatArray(n * 3)
+    private var airDirty = false
+    private var natVolume = 1f
     private val areaN = FloatArray(n * 3)
     val normals = FloatArray(n * 3)
     /** Where each point sits on the unit sphere: the slime's swirl and glitter are painted in these coordinates. */
@@ -60,6 +72,21 @@ class SoftBody(subdiv: Int = 4) {
 
     val colliders = ArrayList<Collider>()
     val grabs = ArrayList<Grab>()
+    val blisters = ArrayList<Blister>()
+
+    /** How much of the slime is here (1 all of it): droplets that break off take some away until they come back. */
+    var amount = 1f
+        set(v) {
+            val a = v.coerceIn(MIN_AMOUNT, 1f)
+            if (abs(a - field) < 1e-6f) return
+            val s = cbrt(a / field)
+            field = a
+            for (i in 0 until n * 3) rest[i] *= s
+            shapeNatural()
+        }
+
+    /** The volume of all of it (droplets are measured against this). */
+    val fullVolume get() = natVolume / amount
 
     /** The finished slime's material, and how far it's formed. */
     fun setMaterial(m: Material, form: Float) {
@@ -73,6 +100,10 @@ class SoftBody(subdiv: Int = 4) {
 
     /** Snap straight into the natural shape, at rest. */
     fun reset() {
+        blisters.clear()
+        air.fill(0f)
+        hold.fill(0f)
+        volume0 = natVolume
         for (i in 0 until n * 3) {
             rest[i] = nat[i]
             vel[i] = 0f
@@ -97,6 +128,23 @@ class SoftBody(subdiv: Int = 4) {
     var mold = Mold.DOME
         set(v) { if (v != field) { field = v; shapeNatural() } }
 
+    /** What it sits in: the dish (whose wall follows [plate]) or a round bowl or jar (see [Shapes.vesselR]). */
+    var vessel = Vessel.DISH
+        set(v) {
+            field = v
+            vH = Shapes.vesselH(v)
+            for (k in 0..V_STEPS) vR[k] = Shapes.vesselR(v, k * vH / V_STEPS)
+            for (k in 0..V_STEPS) {
+                val a = vR[max(0, k - 1)]; val b = vR[min(V_STEPS, k + 1)]
+                vD[k] = ((b - a) / ((min(V_STEPS, k + 1) - max(0, k - 1)) * vH / V_STEPS)).coerceIn(-12f, 12f)
+            }
+            vMin = vR.min()
+        }
+    private var vH = 1f
+    private val vR = FloatArray(V_STEPS + 1)
+    private val vD = FloatArray(V_STEPS + 1)
+    private var vMin = 0f
+
     /** The dish outline the wall follows. */
     var plate = Plate.ROUND
         set(v) {
@@ -116,9 +164,10 @@ class SoftBody(subdiv: Int = 4) {
     private fun shapeNatural() {
         // Dome: wide and low, nearly flat underneath. Puddle: a thin spread of glue. Molds reshape the formed slime.
         val f = smooth(form)
-        val radius = lerp(1.5f, 1.05f, f)
-        val height = lerp(0.16f, 0.62f, f)
-        val under = lerp(0.04f, 0.1f, f)
+        val sc = cbrt(amount)
+        val radius = lerp(1.5f, 1.05f, f) * sc
+        val height = lerp(0.16f, 0.62f, f) * sc
+        val under = lerp(0.04f, 0.1f, f) * sc
         val p = FloatArray(3)
         for (i in 0 until n) {
             Shapes.mold(mold, sphere.verts[i * 3], sphere.verts[i * 3 + 1], sphere.verts[i * 3 + 2], radius, height, under, f, p)
@@ -129,7 +178,9 @@ class SoftBody(subdiv: Int = 4) {
         for (i in 0 until n) { mx += nat[i * 3]; my += nat[i * 3 + 1]; mz += nat[i * 3 + 2] }
         mx /= n; my /= n; mz /= n
         for (i in 0 until n) { nat[i * 3] -= mx; nat[i * 3 + 1] -= my; nat[i * 3 + 2] -= mz }
-        volume0 = volumeOf(nat)
+        natVolume = volumeOf(nat)
+        airDirty = true
+        if (blisters.isEmpty()) volume0 = natVolume
     }
 
     /** The dish wall's radius in the direction of ([x], [z]). */
@@ -152,6 +203,7 @@ class SoftBody(subdiv: Int = 4) {
     fun step(frameDt: Float) {
         val dt = 1f / 240f
         val steps = (frameDt / dt).toInt().coerceIn(1, 8)
+        if (airDirty) updateAir()
         updateRestLengths()
         var agit = 0f
         repeat(steps) { agit += sub(dt) }
@@ -224,7 +276,9 @@ class SoftBody(subdiv: Int = 4) {
         }
         // The dish: a floor that grips, and a wall.
         val grip = max(0f, 1f - 14f * dt)
-        for (i in 0 until n) {
+        if (vessel != Vessel.DISH) {
+            container(grip, max(0f, 1f - 5f * dt))
+        } else for (i in 0 until n) {
             val o = i * 3
             if (pos[o + 1] < 0f) {
                 pos[o + 1] = 0f
@@ -248,23 +302,141 @@ class SoftBody(subdiv: Int = 4) {
         val pf = m.plastic * dt
         val rf = m.relax * dt
         var agit = 0f
+        val sf = min(1f, SCULPT_RATE * dt)
         for (i in 0 until n) {
             val o = i * 3
             val dx = pos[o] - mx - rest[o]
             val dy = pos[o + 1] - my - rest[o + 1]
             val dz = pos[o + 2] - mz - rest[o + 2]
             val d = sqrt(dx * dx + dy * dy + dz * dz)
-            if (d > YIELD) {
-                val k = pf * (d - YIELD) / d
+            // Sculpted points take their new shape almost at once and keep it a few seconds.
+            val h = hold[i]
+            if (h > 0f) hold[i] = max(0f, h - dt)
+            val y = if (h > 0f) SCULPT_YIELD else YIELD
+            if (d > y) {
+                val k = (if (h > HOLD - 0.3f) sf else pf) * (d - y) / d
                 rest[o] += dx * k; rest[o + 1] += dy * k; rest[o + 2] += dz * k
-                agit += d - YIELD
+                agit += d - y
             }
-            rest[o] += (nat[o] - rest[o]) * rf
-            rest[o + 1] += (nat[o + 1] - rest[o + 1]) * rf
-            rest[o + 2] += (nat[o + 2] - rest[o + 2]) * rf
+            val r = if (h > 0f) rf * 0.06f else rf
+            rest[o] += (nat[o] + air[o] - rest[o]) * r
+            rest[o + 1] += (nat[o + 1] + air[o + 1] - rest[o + 1]) * r
+            rest[o + 2] += (nat[o + 2] + air[o + 2] - rest[o + 2]) * r
         }
         return agit / n * 8f
     }
+
+    /**
+     * A round bowl or jar: a floor that grips, and a curved wall the slime slides up (and sticks to a little). A point
+     * outside the wall at its height goes back in along the wall's normal, in the (radius, height) plane.
+     */
+    private fun container(grip: Float, stick: Float) {
+        val steps = V_STEPS / vH
+        for (i in 0 until n) {
+            val o = i * 3
+            if (pos[o + 1] < 0f) {
+                pos[o + 1] = 0f
+                if (vel[o + 1] < 0f) vel[o + 1] = 0f
+                vel[o] *= grip; vel[o + 2] *= grip
+            }
+            val r2 = pos[o] * pos[o] + pos[o + 2] * pos[o + 2]
+            if (r2 <= vMin * vMin) continue
+            val r = sqrt(r2)
+            val t = (pos[o + 1] * steps).coerceIn(0f, V_STEPS.toFloat())
+            val k = min(t.toInt(), V_STEPS - 1)
+            val fr = t - k
+            val wr = vR[k] + (vR[k + 1] - vR[k]) * fr
+            if (r <= wr) continue
+            val dr = vD[k] + (vD[k + 1] - vD[k]) * fr
+            val inv = 1f / sqrt(1f + dr * dr)
+            // Outward normal (nr, ny) and how far out the point is along it.
+            val nr = inv; val ny = -dr * inv
+            val out = (r - wr) * inv
+            val ex = pos[o] / r; val ez = pos[o + 2] / r
+            val nrr = r - out * nr
+            pos[o] = ex * nrr; pos[o + 2] = ez * nrr
+            pos[o + 1] = max(0f, pos[o + 1] - out * ny)
+            val vn = (vel[o] * ex + vel[o + 2] * ez) * nr + vel[o + 1] * ny
+            if (vn > 0f) {
+                vel[o] -= vn * nr * ex; vel[o + 2] -= vn * nr * ez; vel[o + 1] -= vn * ny
+            }
+            vel[o] *= stick; vel[o + 1] *= stick; vel[o + 2] *= stick
+        }
+    }
+
+    /** Recomputes the blisters' air, moving the resting shape along with it, and the volume to hold. */
+    private fun updateAir() {
+        airDirty = false
+        airNext.fill(0f)
+        for (b in blisters) {
+            if (b.size <= 0f) continue
+            for (i in 0 until n) {
+                val o = i * 3
+                val qx = pattern[o] - b.px; val qy = pattern[o + 1] - b.py; val qz = pattern[o + 2] - b.pz
+                val d = sqrt(qx * qx + qy * qy + qz * qz) / Blister.R
+                if (d >= 1f) continue
+                // A dome rising off the skin, widening a little at its base like a balloon.
+                val cap = sqrt(1f - d * d)
+                val along = qx * b.nx + qy * b.ny + qz * b.nz
+                var tx = qx - b.nx * along; var ty = qy - b.ny * along; var tz = qz - b.nz * along
+                val tl = sqrt(tx * tx + ty * ty + tz * tz)
+                if (tl > 1e-5f) { tx /= tl; ty /= tl; tz /= tl } else { tx = 0f; ty = 0f; tz = 0f }
+                val side = 0.45f * d * cap
+                airNext[o] += b.size * (cap * b.nx + side * tx)
+                airNext[o + 1] += b.size * (cap * b.ny + side * ty)
+                airNext[o + 2] += b.size * (cap * b.nz + side * tz)
+            }
+        }
+        for (i in 0 until n * 3) {
+            rest[i] += airNext[i] - air[i]
+            air[i] = airNext[i]
+            scratch[i] = nat[i] + air[i]
+        }
+        volume0 = if (blisters.isEmpty()) natVolume else volumeOf(scratch)
+    }
+
+    /** Starts a blister at the hit point (pattern coordinates [px], [py], [pz]), rising along the normal there. */
+    fun addBlister(px: Float, py: Float, pz: Float, nx: Float, ny: Float, nz: Float): Blister {
+        val pl = sqrt(px * px + py * py + pz * pz).takeIf { it > 1e-6f } ?: 1f
+        return Blister(px / pl, py / pl, pz / pl, nx, ny, nz).also { blisters += it }
+    }
+
+    /** Blows [d] more air into [b], up to its limit. */
+    fun blow(b: Blister, d: Float) {
+        b.size = min(Blister.MAX, b.size + d)
+        airDirty = true
+    }
+
+    /** Lets all the air out of [b] at once: the skin falls back in. */
+    fun popBlister(b: Blister) {
+        blisters.remove(b)
+        airDirty = true
+    }
+
+    /** The blister under pattern point (x, y, z), if any (and how close to its middle, 0..1). */
+    fun blisterAt(x: Float, y: Float, z: Float): Blister? = blisters.filter { it.size > 0.04f }.minByOrNull {
+        sq(x - it.px) + sq(y - it.py) + sq(z - it.pz)
+    }?.takeIf { sqrt(sq(x - it.px) + sq(y - it.py) + sq(z - it.pz)) < Blister.R * 0.85f }
+
+    /** The world position of a blister's top. */
+    fun blisterTop(b: Blister, out: FloatArray) {
+        var best = 0; var bd = Float.MAX_VALUE
+        for (i in 0 until n) {
+            val d = sq(pattern[i * 3] - b.px) + sq(pattern[i * 3 + 1] - b.py) + sq(pattern[i * 3 + 2] - b.pz)
+            if (d < bd) { bd = d; best = i }
+        }
+        out[0] = pos[best * 3]; out[1] = pos[best * 3 + 1]; out[2] = pos[best * 3 + 2]
+    }
+
+    /** Pattern (unit sphere) coordinates at barycentric (u, v) on [tri]. */
+    fun patternAt(tri: Int, u: Float, v: Float, out: FloatArray) {
+        val a = tris[tri * 3] * 3; val b = tris[tri * 3 + 1] * 3; val c = tris[tri * 3 + 2] * 3
+        val w = 1f - u - v
+        for (k in 0 until 3) out[k] = pattern[a + k] * w + pattern[b + k] * u + pattern[c + k] * v
+    }
+
+    /** A sculpting tool touched point [i]: it keeps the new shape for a while. */
+    internal fun sculpt(i: Int) { hold[i] = HOLD }
 
     private fun updateRestLengths() {
         for (e in 0 until edgeCount) {
@@ -420,6 +592,29 @@ class SoftBody(subdiv: Int = 4) {
         out[1] = sqrt(r)
     }
 
+    /** Pushes every point within [radius] of (x, y, z) outwards from it at [speed] (a bonk, a splash). */
+    fun burstAt(x: Float, y: Float, z: Float, radius: Float, speed: Float) {
+        for (i in 0 until n) {
+            val o = i * 3
+            val dx = pos[o] - x; val dy = pos[o + 1] - y; val dz = pos[o + 2] - z
+            val d = sqrt(dx * dx + dy * dy + dz * dz)
+            if (d < radius && d > 1e-4f) {
+                val w = (1f - d / radius) * speed / d
+                vel[o] += dx * w; vel[o + 1] += dy * w * 0.5f; vel[o + 2] += dz * w
+            }
+        }
+    }
+
+    /** The skin point nearest (x, y, z). */
+    fun nearest(x: Float, y: Float, z: Float): Int {
+        var best = 0; var bd = Float.MAX_VALUE
+        for (i in 0 until n) {
+            val d = sq(pos[i * 3] - x) + sq(pos[i * 3 + 1] - y) + sq(pos[i * 3 + 2] - z)
+            if (d < bd) { bd = d; best = i }
+        }
+        return best
+    }
+
     /** Rest offset of point [i] (for tests). */
     internal fun restOf(i: Int) = floatArrayOf(rest[i * 3], rest[i * 3 + 1], rest[i * 3 + 2])
 
@@ -431,10 +626,19 @@ class SoftBody(subdiv: Int = 4) {
 
     internal fun velocity() = vel
 
+    private fun sq(x: Float) = x * x
+
     companion object {
         const val DISH_R = 1.85f
         private const val WALL_STEPS = 720
+        private const val V_STEPS = 256
         const val YIELD = 0.07f
+        private const val SCULPT_YIELD = 0.015f
+        /** How fast a sculpted point's rest follows it (per second), and how long it holds. */
+        private const val SCULPT_RATE = 30f
+        const val HOLD = 3.5f
+        /** Never less than this much left in the dish. */
+        const val MIN_AMOUNT = 0.55f
         const val GRAB_K = 700f
         const val GRAB_C = 26f
 
@@ -454,6 +658,20 @@ class SoftBody(subdiv: Int = 4) {
     }
 }
 
+/**
+ * Air blown into the skin: a dome around pattern point ([px], [py], [pz]) rising along ([nx], [ny], [nz]), [size]
+ * high (world units).
+ */
+class Blister(val px: Float, val py: Float, val pz: Float, val nx: Float, val ny: Float, val nz: Float) {
+    var size = 0f
+
+    companion object {
+        /** How wide (a chord on the unit sphere) and how high it can get before it bursts. */
+        const val R = 0.62f
+        const val MAX = 0.85f
+    }
+}
+
 /** A finger stretching the slime: grabbed points, how strongly each follows ([w]), and where they were. */
 class Grab(val idx: IntArray, val w: FloatArray, val off: FloatArray) {
     var tx = 0f; var ty = 0f; var tz = 0f
@@ -466,6 +684,8 @@ class Grab(val idx: IntArray, val w: FloatArray, val off: FloatArray) {
 /** Something solid pushing into the slime. [contacts]/[push] say how much it touched in the last step (for sounds). */
 sealed class Collider {
     var active = true
+    /** Presses its shape into the slime's resting shape (rake, stamp, cutter). */
+    var sculpt = false
     var contacts = 0
     var push = 0f
     abstract fun resolve(b: SoftBody)
@@ -485,6 +705,7 @@ class SphereCollider(var x: Float = 0f, var y: Float = 0f, var z: Float = 0f, va
             val nx = dx / d; val ny = dy / d; val nz = dz / d
             push += r - d
             contacts++
+            if (sculpt) b.sculpt(i)
             p[o] = x + nx * r; p[o + 1] = y + ny * r; p[o + 2] = z + nz * r
             val vn = v[o] * nx + v[o + 1] * ny + v[o + 2] * nz
             if (vn < 0f) { v[o] -= vn * nx; v[o + 1] -= vn * ny; v[o + 2] -= vn * nz }

@@ -36,7 +36,7 @@ data class Material(
     val crunchy: Boolean = false,
 )
 
-enum class Base(val title: String, val blurb: String, val price: Int, val mat: Material) {
+enum class Base(val title: String, val blurb: String, val price: Int, val mat: Material, val level: Int = 1) {
     GLOSSY("Glossy", "Wet-look shine, a classic", 0,
         Material(shapeK = 26f, edgeK = 1400f, damping = 3.2f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.3f, alpha = 1f, gloss = 1f)),
     CLEAR("Clear", "Glass-clear and stretchy", 0,
@@ -44,27 +44,27 @@ enum class Base(val title: String, val blurb: String, val price: Int, val mat: M
     BUTTER("Butter", "Thick, smooth, holds a shape", 0,
         Material(shapeK = 18f, edgeK = 1800f, damping = 5.5f, plastic = 0.9f, relax = 0.18f, volumeK = 40f, gravity = 1.1f, maxStretch = 1.6f, alpha = 1f, gloss = 0.28f)),
     CLOUD("Cloud", "Fluffy, airy and drizzly", 120,
-        Material(shapeK = 16f, edgeK = 1000f, damping = 4.5f, plastic = 0.6f, relax = 0.3f, volumeK = 26f, gravity = 0.9f, maxStretch = 2.0f, alpha = 1f, gloss = 0.12f, fluff = 1f)),
+        Material(shapeK = 16f, edgeK = 1000f, damping = 4.5f, plastic = 0.6f, relax = 0.3f, volumeK = 26f, gravity = 0.9f, maxStretch = 2.0f, alpha = 1f, gloss = 0.12f, fluff = 1f), level = 2),
     JELLY("Jelly", "Bouncy, wobbly, can't stop jiggling", 150,
-        Material(shapeK = 46f, edgeK = 2200f, damping = 1.3f, plastic = 0.04f, relax = 1.4f, volumeK = 46f, gravity = 2.8f, maxStretch = 1.3f, alpha = 0.62f, gloss = 1f)),
+        Material(shapeK = 46f, edgeK = 2200f, damping = 1.3f, plastic = 0.04f, relax = 1.4f, volumeK = 46f, gravity = 2.8f, maxStretch = 1.3f, alpha = 0.62f, gloss = 1f), level = 2),
     ICEE("Icee", "Frosty, crackly, crunches as you squish", 200,
-        Material(shapeK = 24f, edgeK = 1500f, damping = 3.6f, plastic = 0.45f, relax = 0.35f, volumeK = 32f, gravity = 1.5f, maxStretch = 2.0f, alpha = 0.55f, gloss = 0.7f, frost = 1f, crunchy = true)),
+        Material(shapeK = 24f, edgeK = 1500f, damping = 3.6f, plastic = 0.45f, relax = 0.35f, volumeK = 32f, gravity = 1.5f, maxStretch = 2.0f, alpha = 0.55f, gloss = 0.7f, frost = 1f, crunchy = true), level = 3),
     CHROME("Chrome", "Liquid metal, a mirror you can squish", 250,
-        Material(shapeK = 26f, edgeK = 1500f, damping = 3.4f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.1f, alpha = 1f, gloss = 1f, metal = 1f)),
+        Material(shapeK = 26f, edgeK = 1500f, damping = 3.4f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.1f, alpha = 1f, gloss = 1f, metal = 1f), level = 4),
     HOLO("Holo", "Rainbow sheen that shifts as it moves", 300,
-        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 1f, gloss = 1f, holo = 1f)),
+        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 1f, gloss = 1f, holo = 1f), level = 4),
     GLOW("Glow", "Glows in the dark: turn the lights off", 350,
-        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 0.85f, gloss = 0.9f, glow = 1f)),
+        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 0.85f, gloss = 0.9f, glow = 1f), level = 3),
     FLOAM("Floam", "Packed with beads, crunches everywhere", 220,
-        Material(shapeK = 20f, edgeK = 1600f, damping = 4.8f, plastic = 0.7f, relax = 0.22f, volumeK = 38f, gravity = 1.2f, maxStretch = 1.5f, alpha = 1f, gloss = 0.35f, fluff = 0.45f, crunchy = true)),
+        Material(shapeK = 20f, edgeK = 1600f, damping = 4.8f, plastic = 0.7f, relax = 0.22f, volumeK = 38f, gravity = 1.2f, maxStretch = 1.5f, alpha = 1f, gloss = 0.35f, fluff = 0.45f, crunchy = true), level = 3),
     PEARL("Pearl", "Soft pearly shimmer, silky smooth", 260,
-        Material(shapeK = 24f, edgeK = 1500f, damping = 3.4f, plastic = 0.4f, relax = 0.4f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.2f, alpha = 1f, gloss = 0.9f, metal = 0.3f, holo = 0.3f)),
+        Material(shapeK = 24f, edgeK = 1500f, damping = 3.4f, plastic = 0.4f, relax = 0.4f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.2f, alpha = 1f, gloss = 0.9f, metal = 0.3f, holo = 0.3f), level = 5),
     MAGNETIC("Magnetic", "Iron slime: the magnet toy loves it", 320,
-        Material(shapeK = 20f, edgeK = 1500f, damping = 3.6f, plastic = 0.5f, relax = 0.35f, volumeK = 34f, gravity = 1.7f, maxStretch = 2.4f, alpha = 1f, gloss = 0.85f, metal = 0.55f)),
+        Material(shapeK = 20f, edgeK = 1500f, damping = 3.6f, plastic = 0.5f, relax = 0.35f, volumeK = 34f, gravity = 1.7f, maxStretch = 2.4f, alpha = 1f, gloss = 0.85f, metal = 0.55f), level = 5),
     THERMO("Thermo", "Changes colour as you play with it", 380,
-        Material(shapeK = 26f, edgeK = 1400f, damping = 3.2f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.3f, alpha = 1f, gloss = 0.8f, thermo = 1f)),
+        Material(shapeK = 26f, edgeK = 1400f, damping = 3.2f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.3f, alpha = 1f, gloss = 0.8f, thermo = 1f), level = 6),
     GALAXY("Galaxy", "A night sky full of stars", 420,
-        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.4f, alpha = 1f, gloss = 1f, galaxy = 1f)),
+        Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.4f, alpha = 1f, gloss = 1f, galaxy = 1f), level = 7),
     ;
 
     val id get() = name.lowercase()
@@ -207,14 +207,23 @@ enum class Tray(val title: String, val argb: Long, val gloss: Float, val price: 
     }
 }
 
-/** Extra play tools from the shop (the free ones, Poke to Bubbles, are always there). Names match gl.Tool. */
-enum class Toy(val title: String, val blurb: String, val price: Int) {
-    SLAP("Slap", "Give it a big wobbly smack", 60),
-    RAKE("Rake", "Drag grooves through it, so satisfying", 120),
-    STAMP("Star stamp", "Press a star into it", 160),
-    SHAKER("Sprinkle shaker", "Shake sprinkles all over it", 140),
-    MAGNET("Magnet", "Pull the slime up into spikes (Magnetic slime loves it)", 250),
-    WAND("Bubble wand", "Tap to blow a cloud of bubbles, some golden", 300),
+/**
+ * Extra play tools from the shop (the free ones, Poke to Bubbles, are always there). Names match gl.Tool. Each
+ * unlocks for buying at [level].
+ */
+enum class Toy(val title: String, val blurb: String, val price: Int, val level: Int = 1) {
+    SLAP("Slap", "A big wobbly smack. Slap it fast and it splats into droplets!", 60),
+    RAKE("Rake", "Drag deep grooves through it, so satisfying", 120, 2),
+    SHAKER("Sprinkle shaker", "Shake sprinkles all over it", 140, 2),
+    SQUEEZE("Squeeze", "Grab it and squeeze until it squirts out droplets", 150, 2),
+    STAMP("Star stamp", "Press a star into it", 160, 3),
+    SCOOP("Scoop", "Scoop out a blob and drop it somewhere else", 170, 3),
+    HAMMER("Squeaky hammer", "Bonk! Splashes it everywhere", 180, 3),
+    CUTTER("Heart cutter", "Press a heart shape deep into it", 200, 4),
+    WAND("Bubble wand", "Tap to blow a cloud of bubbles, some golden", 300, 4),
+    MAGNET("Magnet", "Pull the slime up into spikes (Magnetic slime loves it)", 250, 5),
+    WHISK("Whisk", "Hold to whip it round and swirl the colours", 260, 5),
+    DRYER("Hair dryer", "Blow warm wind across it to make ripples", 320, 6),
     ;
 
     val id get() = name.lowercase()
@@ -228,16 +237,16 @@ enum class Fx { TWINKLE, SNOW, PETALS, BUBBLES, SPARKLE, POLLEN }
  * Where you play: a painted backdrop behind the dish, its weather, the sky the slime reflects ([skyTop] and
  * [skyBottom]) and its own little song. Void is the classic procedural space.
  */
-enum class World(val title: String, val blurb: String, val price: Int, val fx: Fx, val skyTop: Long, val skyBottom: Long) {
+enum class World(val title: String, val blurb: String, val price: Int, val fx: Fx, val skyTop: Long, val skyBottom: Long, val level: Int = 1) {
     VOID("The Void", "Deep space, glowing and calm", 0, Fx.TWINKLE, 0xFF2A1F5C, 0xFF0B0820),
     MEADOW("Sunny meadow", "Rolling hills, flowers and a breeze", 150, Fx.POLLEN, 0xFF8FD8FF, 0xFF9BE07A),
-    CANDY("Candy land", "Lollipops and cotton-candy clouds", 200, Fx.SPARKLE, 0xFFFFC2E2, 0xFFC9A8FF),
-    OCEAN("Under the sea", "Bubbles, coral and friendly fish", 250, Fx.BUBBLES, 0xFF3DD5FF, 0xFF103A8A),
-    SAKURA("Sakura garden", "Cherry blossoms drifting down", 250, Fx.PETALS, 0xFFFFD9E8, 0xFFB98CFF),
-    SNOW("Snowy peaks", "A cosy cabin in the snow", 300, Fx.SNOW, 0xFFCFEFFF, 0xFF7FA6E8),
-    BEACH("Sunset beach", "Palm trees and a warm sunset", 300, Fx.SPARKLE, 0xFFFFB37A, 0xFFFF6F91),
-    SPACE("Planet hop", "Rings, moons and shooting stars", 350, Fx.TWINKLE, 0xFF3B0A6B, 0xFF05030F),
-    NEON("Neon city", "Glowing skyline at night", 400, Fx.SPARKLE, 0xFFFF2BD6, 0xFF14101F),
+    CANDY("Candy land", "Lollipops and cotton-candy clouds", 200, Fx.SPARKLE, 0xFFFFC2E2, 0xFFC9A8FF, 2),
+    OCEAN("Under the sea", "Bubbles, coral and friendly fish", 250, Fx.BUBBLES, 0xFF3DD5FF, 0xFF103A8A, 3),
+    SAKURA("Sakura garden", "Cherry blossoms drifting down", 250, Fx.PETALS, 0xFFFFD9E8, 0xFFB98CFF, 3),
+    SNOW("Snowy peaks", "A cosy cabin in the snow", 300, Fx.SNOW, 0xFFCFEFFF, 0xFF7FA6E8, 4),
+    BEACH("Sunset beach", "Palm trees and a warm sunset", 300, Fx.SPARKLE, 0xFFFFB37A, 0xFFFF6F91, 5),
+    SPACE("Planet hop", "Rings, moons and shooting stars", 350, Fx.TWINKLE, 0xFF3B0A6B, 0xFF05030F, 6),
+    NEON("Neon city", "Glowing skyline at night", 400, Fx.SPARKLE, 0xFFFF2BD6, 0xFF14101F, 8),
     ;
 
     val id get() = name.lowercase()
@@ -250,14 +259,14 @@ enum class World(val title: String, val blurb: String, val price: Int, val fx: F
 }
 
 /** The outline of the dish (see [Shapes.plateR]); the slime squishes up against its wall. */
-enum class Plate(val title: String, val price: Int) {
+enum class Plate(val title: String, val price: Int, val level: Int = 1) {
     ROUND("Round", 0),
     SQUARE("Square", 120),
-    HEXAGON("Hexagon", 150),
-    FLOWER("Flower", 180),
-    CLOUD("Cloud", 200),
-    STAR("Star", 240),
-    HEART("Heart", 260),
+    HEXAGON("Hexagon", 150, 2),
+    FLOWER("Flower", 180, 2),
+    CLOUD("Cloud", 200, 3),
+    STAR("Star", 240, 4),
+    HEART("Heart", 260, 4),
     ;
 
     val id get() = name.lowercase()
@@ -268,18 +277,37 @@ enum class Plate(val title: String, val price: Int) {
     }
 }
 
+/**
+ * What the slime sits in. The dish is flat with a low wall (and takes the [Plate] outline); bowls and jars are deep
+ * and round, so the slime slumps into them and climbs their walls (see [Shapes.vesselR]). [glass] ones are see-through.
+ */
+enum class Vessel(val title: String, val blurb: String, val price: Int, val level: Int, val glass: Boolean) {
+    DISH("Dish", "Flat and roomy, in any dish shape", 0, 1, false),
+    BOWL("Bowl", "A deep round bowl to squish into", 150, 2, false),
+    JAR("Jar", "A tall glass jar: watch it from every side", 220, 3, true),
+    FISHBOWL("Fishbowl", "A round glass bubble with a little mouth", 300, 5, true),
+    ;
+
+    val id get() = name.lowercase()
+    val icon get() = "vessel_$id"
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id } ?: DISH
+    }
+}
+
 /** The shape a slime settles into (see [Shapes]). Animals get ears and, by default, a cute face. */
-enum class Mold(val title: String, val blurb: String, val price: Int, val animal: Boolean = false) {
+enum class Mold(val title: String, val blurb: String, val price: Int, val animal: Boolean = false, val level: Int = 1) {
     DOME("Dome", "The classic squishy blob", 0),
     HEART("Heart", "A big squishy heart", 150),
     STAR("Star", "Five chubby points", 150),
-    CUBE("Cube", "A soft wobbly cube", 180),
-    FLOWER("Flower", "Six round petals", 180),
-    PUDDING("Pudding", "Tall and jiggly with a flat top", 160),
-    DROP("Drop", "A droplet with a little tip", 160),
-    BEAR("Bear", "Round ears, very huggable", 220, animal = true),
-    BUNNY("Bunny", "Long floppy ears", 220, animal = true),
-    CAT("Cat", "Pointy ears, purrs when poked", 220, animal = true),
+    CUBE("Cube", "A soft wobbly cube", 180, level = 2),
+    FLOWER("Flower", "Six round petals", 180, level = 2),
+    PUDDING("Pudding", "Tall and jiggly with a flat top", 160, level = 2),
+    DROP("Drop", "A droplet with a little tip", 160, level = 3),
+    BEAR("Bear", "Round ears, very huggable", 220, animal = true, level = 4),
+    BUNNY("Bunny", "Long floppy ears", 220, animal = true, level = 4),
+    CAT("Cat", "Pointy ears, purrs when poked", 220, animal = true, level = 5),
     ;
 
     val id get() = name.lowercase()

@@ -41,6 +41,8 @@ import dev.m4s4t0.voidslime.model.Shapes
 import dev.m4s4t0.voidslime.model.World
 import dev.m4s4t0.voidslime.ui.Art
 import dev.m4s4t0.voidslime.model.Tray
+import dev.m4s4t0.voidslime.model.Vessel
+import dev.m4s4t0.voidslime.sim.Icosphere
 import dev.m4s4t0.voidslime.model.colorOf
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
@@ -48,6 +50,8 @@ import javax.microedition.khronos.opengles.GL10
 import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.min
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 /** Draws a [Scene]: backdrop, dish, shadow, the slime with its add-ins, tools, bubbles and sparks. */
 class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceView.Renderer {
@@ -55,6 +59,9 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
     @Volatile var world: World = World.VOID
     @Volatile var plate: Plate = Plate.ROUND
     private var builtPlate: Plate? = null
+    @Volatile var vessel: Vessel = Vessel.DISH
+    private var builtVessel: Vessel? = null
+    private var vesselMesh: Mesh? = null
     private var texWorld: World? = null
     private var tex = 0
     private var texW = 1
@@ -68,8 +75,9 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
     private lateinit var pBack: Program
     private lateinit var trayMesh: Mesh
     private lateinit var pinMesh: Mesh
-    private lateinit var palmMesh: Mesh
     private lateinit var bubbleMesh: Mesh
+    private lateinit var rodMesh: Mesh
+    private lateinit var cupMesh: Mesh
 
     private val body = scene.body
     private val idx = shorts(ShortArray(body.tris.size) { body.tris[it].toShort() })
@@ -79,6 +87,16 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
     private val quad = floats(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f))
     private val sprites = floats(MAX_SPRITES * SPRITE_FLOATS)
     private val model = FloatArray(16)
+    private val air = FloatArray(12)
+    // Droplets: a small sphere, reshaped on the CPU each frame and drawn with the slime's own shader.
+    private val drop = Icosphere(2)
+    private val dropIdx = shorts(ShortArray(drop.tris.size) { drop.tris[it].toShort() })
+    private val dropPos = floats(drop.count * 3)
+    private val dropNor = floats(drop.count * 3)
+    private val dropPat = floats(drop.count * 3)
+    private val dp = FloatArray(drop.count * 3)
+    private val dn = FloatArray(drop.count * 3)
+    private val dq = FloatArray(drop.count * 3)
     private val ext = FloatArray(2)
     private var last = 0L
 
@@ -102,8 +120,10 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
         texWorld = null
         tex = 0
         pinMesh = Meshes.rollingPin()
-        palmMesh = Meshes.palm()
         bubbleMesh = Meshes.sphere(2)
+        rodMesh = Meshes.rod()
+        cupMesh = Meshes.cup()
+        builtVessel = null
         glClearColor(0f, 0f, 0f, 1f)
         glDepthFunc(GL_LEQUAL)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -125,6 +145,12 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
             trayMesh = if (pl == Plate.ROUND) Meshes.tray() else Meshes.tray({ Shapes.plateR(pl, it) }, 240)
             body.plate = pl
         }
+        val ve = vessel
+        if (ve != builtVessel) {
+            builtVessel = ve
+            vesselMesh = if (ve == Vessel.DISH) null else Meshes.vessel(ve)
+            body.vessel = ve
+        }
         loadWorld()
         scene.update(dt)
         colors()
@@ -137,7 +163,10 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
         glDisable(GL_CULL_FACE)
         val t = tray
         drawSolid(trayMesh, identity(), Scene.rgb(t.argb), 1f, t.gloss, if (t == Tray.NEON) scene.look.accent else ZERO)
+        val vm = vesselMesh
+        if (vm != null && ve == Vessel.BOWL) drawSolid(vm, identity(), Scene.rgb(t.argb).let { c -> FloatArray(3) { min(1f, c[it] * 0.8f + 0.2f) } }, 1f, t.gloss, ZERO)
         drawShadow()
+        drawDroplets()
 
         posBuf.position(0); posBuf.put(body.pos); posBuf.position(0)
         norBuf.position(0); norBuf.put(body.normals); norBuf.position(0)
@@ -154,6 +183,8 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
             drawSlime(false)
         } else {
             glCullFace(GL_BACK)
+            // A blown-up blister's thin skin is see-through even on an opaque slime.
+            if (body.blisters.isNotEmpty()) glEnable(GL_BLEND)
             drawSlime(false)
             glEnable(GL_BLEND)
             drawItems()
@@ -163,6 +194,12 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
         drawFace()
         drawTools()
         glDepthMask(false)
+        if (vm != null && ve != Vessel.BOWL) {
+            // Glass last, over everything inside it.
+            pSolid.use(); pSolid.f("uGlass", 1f)
+            drawSolid(vm, identity(), floatArrayOf(0.8f, 0.92f, 1f), 1f, 1f, ZERO)
+            pSolid.use(); pSolid.f("uGlass", 0f)
+        }
         drawBubbles()
         drawParticles()
         glDepthMask(true)
@@ -285,6 +322,20 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
 
     private fun drawSlime(back: Boolean) {
         val p = pSlime
+        drawSlimeUniforms(p, back)
+        air.fill(0f)
+        for ((i, b) in body.blisters.withIndex()) {
+            if (i >= 3) break
+            air[i * 4] = b.px; air[i * 4 + 1] = b.py; air[i * 4 + 2] = b.pz; air[i * 4 + 3] = b.size
+        }
+        GLES20.glUniform4fv(p.u("uAir"), 3, air, 0)
+        bind(p.a("aPos"), posBuf); bind(p.a("aNor"), norBuf); bind(p.a("aPat"), patBuf)
+        idx.position(0)
+        glDrawElements(GL_TRIANGLES, body.tris.size, GL_UNSIGNED_SHORT, idx)
+        glDisableVertexAttribArray(p.a("aPos")); glDisableVertexAttribArray(p.a("aNor")); glDisableVertexAttribArray(p.a("aPat"))
+    }
+
+    private fun drawSlimeUniforms(p: Program, back: Boolean) {
         val m = body.mat
         val r = scene.recipe
         p.use()
@@ -302,10 +353,6 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
         }
         p.f("uTime", scene.time); p.f("uBack", if (back) 1f else 0f)
         env(p)
-        bind(p.a("aPos"), posBuf); bind(p.a("aNor"), norBuf); bind(p.a("aPat"), patBuf)
-        idx.position(0)
-        glDrawElements(GL_TRIANGLES, body.tris.size, GL_UNSIGNED_SHORT, idx)
-        glDisableVertexAttribArray(p.a("aPos")); glDisableVertexAttribArray(p.a("aNor")); glDisableVertexAttribArray(p.a("aPat"))
     }
 
     private fun bind(a: Int, b: FloatBuffer) {
@@ -316,37 +363,93 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
     }
 
     private fun drawTools() {
-        val palm = scene.palm
-        if (palm.active) {
-            glDepthMask(false)
-            Matrix.setIdentityM(model, 0)
-            Matrix.translateM(model, 0, palm.x, palm.y, palm.z)
-            Matrix.scaleM(model, 0, palm.r, 1f, palm.r)
-            drawSolid(palmMesh, model, floatArrayOf(0.85f, 0.92f, 1f), 0.28f, 1f, ZERO)
-            glDepthMask(true)
-        }
         val pin = scene.pin
+        glDisable(GL_BLEND)
         if (pin.active) {
-            glDisable(GL_BLEND)
             Matrix.setIdentityM(model, 0)
             Matrix.translateM(model, 0, pin.x, pin.y, pin.z)
             Matrix.rotateM(model, 0, Math.toDegrees(kotlin.math.atan2(-pin.az, pin.ax).toDouble()).toFloat(), 0f, 1f, 0f)
             Matrix.rotateM(model, 0, -90f, 0f, 0f, 1f)
             Matrix.rotateM(model, 0, Math.toDegrees(scene.pinSpin.toDouble()).toFloat(), 0f, 1f, 0f)
             drawSolid(pinMesh, model, floatArrayOf(0.85f, 0.62f, 0.4f), 1f, 0.4f, ZERO)
-            glEnable(GL_BLEND)
         }
-        val props = scene.props
-        if (props.isNotEmpty()) {
-            glDisable(GL_BLEND)
-            for (pr in props) {
-                Matrix.setIdentityM(model, 0)
-                Matrix.translateM(model, 0, pr.x, pr.y, pr.z)
-                Matrix.scaleM(model, 0, pr.r, pr.r, pr.r)
-                drawSolid(bubbleMesh, model, pr.rgb, 1f, 0.8f, ZERO)
+        // The hand and whatever it holds: balls, rods and the scoop's cup.
+        for (pr in scene.props) {
+            when (pr.shape) {
+                Prop.Shape.BALL -> {
+                    Matrix.setIdentityM(model, 0)
+                    Matrix.translateM(model, 0, pr.x, pr.y, pr.z)
+                    Matrix.scaleM(model, 0, pr.r, pr.r, pr.r)
+                    drawSolid(bubbleMesh, model, pr.rgb, 1f, 0.6f, ZERO)
+                }
+                Prop.Shape.ROD -> if (rodMatrix(pr)) drawSolid(rodMesh, model, pr.rgb, 1f, 0.6f, ZERO)
+                Prop.Shape.CUP -> {
+                    Matrix.setIdentityM(model, 0)
+                    Matrix.translateM(model, 0, pr.x, pr.y, pr.z)
+                    Matrix.scaleM(model, 0, pr.r, pr.r, pr.r)
+                    drawSolid(cupMesh, model, pr.rgb, 1f, 0.9f, ZERO)
+                }
             }
-            glEnable(GL_BLEND)
         }
+        glEnable(GL_BLEND)
+    }
+
+    /** Fits the unit rod between a prop's two ends. False if they're on top of each other. */
+    private fun rodMatrix(pr: Prop): Boolean {
+        val dx = pr.x2 - pr.x; val dy = pr.y2 - pr.y; val dz = pr.z2 - pr.z
+        val l = sqrt(dx * dx + dy * dy + dz * dz)
+        if (l < 1e-4f) return false
+        val ax = dx / l; val ay = dy / l; val az = dz / l
+        // Any direction square to the rod, then the third by a cross product.
+        var ux: Float; var uy: Float; var uz: Float
+        if (abs(ay) < 0.9f) { ux = az; uy = 0f; uz = -ax } else { ux = 0f; uy = -az; uz = ay }
+        val ul = sqrt(ux * ux + uy * uy + uz * uz); ux /= ul; uy /= ul; uz /= ul
+        val wx = ay * uz - az * uy; val wy = az * ux - ax * uz; val wz = ax * uy - ay * ux
+        val r = pr.r
+        val m = model
+        m[0] = ux * r; m[1] = uy * r; m[2] = uz * r; m[3] = 0f
+        m[4] = dx; m[5] = dy; m[6] = dz; m[7] = 0f
+        m[8] = wx * r; m[9] = wy * r; m[10] = wz * r; m[11] = 0f
+        m[12] = pr.x; m[13] = pr.y; m[14] = pr.z; m[15] = 1f
+        return true
+    }
+
+    /** The bits that broke off: little squashy blobs of the same slime. */
+    private fun drawDroplets() {
+        val ds = scene.droplets
+        if (ds.isEmpty()) return
+        val p = pSlime
+        val v = drop.verts
+        glEnable(GL_CULL_FACE)
+        glCullFace(GL_BACK)
+        if (scene.transparent) { glEnable(GL_BLEND); glDepthMask(false) }
+        drawSlimeUniforms(p, false)
+        air.fill(0f)
+        GLES20.glUniform4fv(p.u("uAir"), 3, air, 0)
+        for (d in ds) {
+            val sq = d.squash
+            val wide = 1f + 0.3f * sq
+            val tall = 1f - 0.45f * sq
+            val r = d.r
+            val by = d.y - r * tall
+            for (i in 0 until drop.count) {
+                val x = v[i * 3]; val y = v[i * 3 + 1]; val z = v[i * 3 + 2]
+                dp[i * 3] = d.x + x * r * wide; dp[i * 3 + 1] = by + (y + 1f) * r * tall; dp[i * 3 + 2] = d.z + z * r * wide
+                val nx = x / wide; val ny = y / tall; val nz = z / wide
+                val nl = sqrt(nx * nx + ny * ny + nz * nz)
+                dn[i * 3] = nx / nl; dn[i * 3 + 1] = ny / nl; dn[i * 3 + 2] = nz / nl
+                // Each droplet shows a different bit of the swirl.
+                dq[i * 3] = x * 0.45f + d.seed * 3f; dq[i * 3 + 1] = y * 0.45f; dq[i * 3 + 2] = z * 0.45f - d.seed * 2f
+            }
+            dropPos.position(0); dropPos.put(dp); dropNor.position(0); dropNor.put(dn); dropPat.position(0); dropPat.put(dq)
+            bind(p.a("aPos"), dropPos); bind(p.a("aNor"), dropNor); bind(p.a("aPat"), dropPat)
+            dropIdx.position(0)
+            glDrawElements(GL_TRIANGLES, drop.tris.size, GL_UNSIGNED_SHORT, dropIdx)
+        }
+        glDisableVertexAttribArray(p.a("aPos")); glDisableVertexAttribArray(p.a("aNor")); glDisableVertexAttribArray(p.a("aPat"))
+        glDisable(GL_CULL_FACE)
+        glDisable(GL_BLEND)
+        glDepthMask(true)
     }
 
     private fun drawBubbles() {

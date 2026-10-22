@@ -567,3 +567,23 @@ def _calendar(ctx):
         flat(ctx, rrect(x - 12, y - 7, 24, 14, 4), "#a970ff" if i == 4 else "#e6e0f5")
 
 
+
+
+@icon("flag")
+def _flag(ctx):
+    blob(ctx, capsule(52, 30, 52, 176, 8), "#d7d3ea", outline=INK, ow=7, shine=False)
+    blob(ctx, rrect(52, 32, 108, 76, 8), "#ffffff", outline=INK, ow=8, gloss=0.2, shine=False)
+    for i in range(4):
+        for j in range(3):
+            if (i + j) % 2 == 0:
+                flat(ctx, rrect(56 + i * 26, 36 + j * 23, 26, 23, 2), INK)
+
+
+@icon("race")
+def _race(ctx):
+    for i, y in enumerate((70, 110, 150)):
+        line(ctx, [(14, y), (64 - i * 10, y)], "#22e3ff", 8, 0.8)
+    blob(ctx, slime_dome(112, 160, 70, 66), "#6ef2b4", outline=INK, ow=7)
+    face(ctx, 124, 128, 30, "open")
+    blob(ctx, capsule(150, 44, 150, 100, 5), "#d7d3ea", outline=INK, ow=5, shine=False)
+    blob(ctx, rrect(150, 44, 34, 26, 4), "#ff4d6d", outline=INK, ow=5, shine=False)

@@ -46,6 +46,7 @@ object Game {
     var tray by mutableStateOf(Tray.VOID)
     var world by mutableStateOf(World.VOID)
     var plate by mutableStateOf(Plate.ROUND)
+    var vessel by mutableStateOf(Vessel.DISH)
     var giftReady by mutableStateOf(false)
         private set
 
@@ -77,6 +78,7 @@ object Game {
         tray = Tray.of(prefs.getString("tray", null))
         world = World.of(prefs.getString("world", null))
         plate = Plate.of(prefs.getString("plate", null))
+        vessel = Vessel.of(prefs.getString("vessel", null))
         runCatching { JSONObject(prefs.getString("stats", "{}")!!) }.getOrNull()?.let { j -> j.keys().forEach { stats[it] = j.getLong(it) } }
         unlocked.addAll(prefs.getStringSet("unlocked", emptySet())!!)
         earned.addAll(prefs.getStringSet("earned", emptySet())!!)
@@ -107,7 +109,7 @@ object Game {
         giftReady = prefs.getString("giftDay", null) != today.toString()
         if (prefs.getString("questDay", null) != today.toString() || quests.isEmpty()) {
             quests.clear()
-            quests.addAll(Quests.daily(rnd, ::isUnlocked, level, stats))
+            quests.addAll(Quests.daily(rnd, ::canUse, level, stats))
             prefs.edit().putString("questDay", today.toString()).apply()
         }
         checkStickers()
@@ -123,7 +125,7 @@ object Game {
         val streak = (stats[Stat.STREAK] ?: 1).toInt()
         val amount = 20 + rnd.nextInt(25) + 5 * streak.coerceAtMost(10)
         // A cheap locked supply, free, now and then.
-        val locked = allKeys().filter { !isUnlocked(it) }.sortedBy { priceOf(it) }.take(6)
+        val locked = allKeys().filter { !isUnlocked(it) && levelOf(it) <= level }.sortedBy { priceOf(it) }.take(6)
         val freebie = if (locked.isNotEmpty() && rnd.nextFloat() < 0.6f) locked[rnd.nextInt(locked.size)] else null
         freebie?.let { unlocked += it }
         val jar = mysteryRecipe("Gift of ${LocalDate.now().dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}")
@@ -230,19 +232,21 @@ object Game {
 
     fun isUnlocked(k: String) = priceOf(k) == 0 || k in unlocked
 
+    /** Owned and the player's level is high enough for it (race cups and challenges go by this). */
+    fun canUse(k: String) = isUnlocked(k) && level >= levelOf(k)
+
+    /** Too low a level to buy [k] yet. */
+    fun levelLocked(k: String) = !isUnlocked(k) && level < levelOf(k)
+
     fun buy(k: String): Boolean {
         val price = priceOf(k)
-        if (isUnlocked(k) || coins < price) return false
+        if (isUnlocked(k) || coins < price || levelLocked(k)) return false
         coins -= price
         unlocked += k
         add(Stat.BOUGHT)
         saveAll()
         return true
     }
-
-    fun allKeys(): List<String> =
-        Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key) +
-            World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key)
 
     fun chooseTray(t: Tray) {
         if (!isUnlocked(key(t))) return
@@ -260,6 +264,12 @@ object Game {
         if (!isUnlocked(key(p))) return
         plate = p
         prefs.edit().putString("plate", p.id).apply()
+    }
+
+    fun chooseVessel(v: Vessel) {
+        if (!isUnlocked(key(v))) return
+        vessel = v
+        prefs.edit().putString("vessel", v.id).apply()
     }
 
     // ---- jars ----
@@ -286,22 +296,48 @@ object Game {
 
     // ---- shop orders ----
 
-    private fun topUpOrders() {
-        while (orders.size < 3) orders += Orders.generate(rnd, ::isUnlocked, level)
+    /** Rush orders that waited too long leave; empty slots fill up. Returns true if anyone left. */
+    fun topUpOrders(): Boolean {
+        val now = System.currentTimeMillis()
+        val left = orders.removeAll { it.expires in 1..now }
+        while (orders.size < Orders.slots(level)) orders += Orders.generate(rnd, ::isUnlocked, level, orders.any { it.kind == OrderKind.VIP }, now)
+        if (left) saveAll()
+        return left
     }
 
-    /** Hands [r] to the customer: pays by stars, replaces the order with a new one. Returns the stars. */
-    fun fulfil(orderId: String, r: Recipe): Pair<Int, Int> {
-        val o = orders.firstOrNull { it.id == orderId } ?: return 0 to 0
+    /** What handing over a slime got: stars, coins (with the combo bonus), the VIP's prize, the perfect run so far. */
+    data class Served(val stars: Int, val pay: Int, val prize: String?, val combo: Int)
+
+    /** Hands [r] to the customer: pays by stars (more for a run of perfect ones), replaces the order with a new one. */
+    fun fulfil(orderId: String, r: Recipe): Served {
+        val o = orders.firstOrNull { it.id == orderId } ?: return Served(0, 0, null, 0)
         val stars = Orders.stars(o, r)
-        val pay = Orders.payout(o, stars)
+        val combo = if (stars == 3) (stats[Stat.COMBO] ?: 0).toInt() + 1 else 0
+        val pay = (Orders.payout(o, stars) * (1f + Orders.comboBonus(combo - 1))).toInt()
+        val prize = o.prize?.takeIf { stars == 3 && !isUnlocked(it) }
+        prize?.let { unlocked += it }
+        stats[Stat.COMBO] = combo.toLong()
+        best(Stat.COMBO_BEST, combo.toLong())
         orders.remove(o)
         topUpOrders()
         add(Stat.ORDERS)
         if (stars == 3) add(Stat.PERFECT)
-        earn(pay, 10 * stars)
+        if (stars == 3 && o.kind == OrderKind.VIP) add(Stat.VIPS)
+        earn(pay, 10 * stars * (if (o.kind == OrderKind.VIP) 2 else 1))
         saveAll()
-        return stars to pay
+        return Served(stars, pay, prize, combo)
+    }
+
+    // ---- slime racing ----
+
+    /** Pays for finishing [cup] in [place] (0 is first). Returns the coins. */
+    fun finishRace(cup: Cup, place: Int): Int {
+        val coins = cup.prizes[place.coerceIn(0, cup.prizes.lastIndex)]
+        add(Stat.RACES)
+        if (place == 0) add(Stat.RACE_WINS)
+        earn(coins, cup.xp(place))
+        saveAll()
+        return coins
     }
 
     fun skipOrder(orderId: String) {
@@ -341,7 +377,7 @@ object Game {
     fun reset() {
         prefs.edit().clear().apply()
         stats.clear(); unlocked.clear(); earned.clear(); jars.clear(); orders.clear(); quests.clear()
-        coins = 60; xp = 0; currentId = null; tray = Tray.VOID; world = World.VOID; plate = Plate.ROUND
+        coins = 60; xp = 0; currentId = null; tray = Tray.VOID; world = World.VOID; plate = Plate.ROUND; vessel = Vessel.DISH
         jars.addAll(STARTER_JARS)
         topUpOrders()
         visit()
@@ -352,6 +388,7 @@ object Game {
     private const val TRICKLE = 30
     private val PLAY_STATS = setOf(
         Stat.POKES, Stat.STRETCHES, Stat.SQUISHES, Stat.ROLLS, Stat.POPS, Stat.CRUNCHES, Stat.SNAPS,
-        Stat.SLAPS, Stat.RAKES, Stat.STAMPS, Stat.SHAKES, Stat.MAGNET, Stat.WANDS,
+        Stat.SLAPS, Stat.RAKES, Stat.STAMPS, Stat.SHAKES, Stat.MAGNET, Stat.WANDS, Stat.SPLATS, Stat.MERGES, Stat.BLISTERS,
+        Stat.SQUEEZES, Stat.SCOOPS, Stat.BONKS, Stat.CUTS, Stat.WHISKS, Stat.DRYS,
     )
 }

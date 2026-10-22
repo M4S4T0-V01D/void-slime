@@ -71,10 +71,17 @@ uniform float uHeat;
 uniform vec4 uGlitter;
 uniform float uTime;
 uniform float uBack;
+// Air blisters blown into the skin: centre (pattern space) and how blown up (0..MAX). Their skin goes thin.
+uniform vec4 uAir[3];
 void main() {
     vec3 n = normalize(vNor) * (uBack > 0.5 ? -1.0 : 1.0);
     vec3 v = normalize(uEye - vPos);
     vec3 p = vPat;
+    float thin = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float d = length(p - uAir[i].xyz) / 0.62;
+        thin = max(thin, smoothstep(1.0, 0.25, d) * smoothstep(0.05, 0.6, uAir[i].w));
+    }
     if (uFluff > 0.0) {
         vec3 q = p * 22.0;
         n = normalize(n + (vec3(noise(q), noise(q + 5.1), noise(q + 9.7)) - 0.5) * 0.6 * uFluff);
@@ -152,6 +159,12 @@ void main() {
     }
     float alpha = 1.0;
     if (uAlpha < 0.999) alpha = clamp(mix(uAlpha, 1.0, fres) + spec * 0.5, 0.0, 1.0);
+    if (thin > 0.0) {
+        // A stretched, see-through film with a soap-bubble shimmer.
+        vec3 film = hue(fract(ndv * 1.3 + p.y * 0.5 + uTime * 0.05)) * 0.5 + base * 0.5;
+        col = mix(col, col * 0.55 + film * (0.3 + fres) * max(uRoom, 0.4) + vec3(spec), thin * 0.8);
+        alpha = mix(alpha, clamp(0.35 + fres * 0.8 + spec, 0.0, 1.0), thin);
+    }
     if (uFrost > 0.0) col = mix(col, col * 0.8 + vec3(0.24, 0.3, 0.36) * uRoom, 0.35 * uFrost);
     if (uGlow > 0.0) {
         float pulse = 0.78 + 0.22 * sin(uTime * 1.7);
@@ -186,9 +199,12 @@ uniform vec3 uLight;
 uniform vec4 uColor;
 uniform float uGloss;
 uniform vec3 uEmit;
+// 1 for the glass jars: mostly see-through, with bright edges and reflections.
+uniform float uGlass;
 void main() {
     vec3 n = normalize(vN);
     vec3 v = normalize(uEye - vW);
+    if (uGlass > 0.5 && dot(n, v) < 0.0) n = -n;
     float diff = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
     float ndv = max(dot(n, v), 0.0);
     float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
@@ -198,7 +214,12 @@ void main() {
     vec3 col = uColor.rgb * (0.45 * amb + 0.7 * diff * uRoom) + env(reflect(-v, n)) * fres * uGloss * 0.8 + vec3(spec) * uRoom;
     // Neon tray: a glowing rim.
     col += uEmit * smoothstep(0.1, 0.2, vW.y);
-    gl_FragColor = vec4(col, uColor.a);
+    float alpha = uColor.a;
+    if (uGlass > 0.5) {
+        col = uColor.rgb * 0.25 * uRoom + env(reflect(-v, n)) * (0.15 + fres * 1.6) + vec3(spec) * 2.0 * uRoom;
+        alpha = clamp(0.1 + fres * 0.85 + spec, 0.0, 1.0);
+    }
+    gl_FragColor = vec4(col, alpha);
 }
 """
 

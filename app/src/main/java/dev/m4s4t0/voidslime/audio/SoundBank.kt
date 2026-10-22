@@ -14,7 +14,7 @@ import kotlin.random.Random
 /** Every sound in the game. Several have a few variants, picked at random, so repeats never sound mechanical. */
 enum class Snd(val variants: Int = 1) {
     BLOP, SQUISH(5), CLICK(5), CRUNCH(4), POP(3), BIG_POP, STRETCH(3), SNAP, SLAP, RELEASE(3), BLOW, PLIP, POUR, SWISH(3),
-    TAP, COIN, LEVEL, STICKER, BUY, DONE, WHOOSH, BELL,
+    TAP, COIN, LEVEL, STICKER, BUY, DONE, WHOOSH, BELL, SQUEAK(3), BONK, HISS,
 }
 
 /**
@@ -33,7 +33,7 @@ object SoundBank {
     private fun peak(s: Snd) = when (s) {
         Snd.TAP -> 0.5f
         Snd.BELL -> 0.6f
-        Snd.POUR, Snd.BLOW, Snd.SWISH -> 0.6f
+        Snd.POUR, Snd.BLOW, Snd.SWISH, Snd.HISS -> 0.6f
         else -> 0.85f
     }
 
@@ -60,6 +60,9 @@ object SoundBank {
         Snd.DONE -> fanfare()
         Snd.WHOOSH -> whoosh(r)
         Snd.BELL -> bellNote(1046.5, 1.4, 0.7, 0.6)
+        Snd.SQUEAK -> squeak(r, 1f + v * 0.15f)
+        Snd.BONK -> bonk(r)
+        Snd.HISS -> hiss(r)
     }
 
     // ---- building blocks ----
@@ -361,6 +364,47 @@ object SoundBank {
         val out = FloatArray(n(1.6))
         for ((k, f) in listOf(523.25, 659.25, 783.99, 1046.5).withIndex()) mixIn(out, bellNote(f, 0.5, 0.15, 0.8), n(k * 0.08), 0.45f)
         for (f in listOf(1046.5, 1318.5, 1568.0, 2093.0)) mixIn(out, bellNote(f, 1.2, 0.45, 0.6), n(0.36), 0.32f)
+        return out
+    }
+
+    /** A squeaky toy hammer: a rubbery wobbling tone that bends up then down. */
+    private fun squeak(r: Random, pitch: Float): FloatArray {
+        val out = FloatArray(n(0.22))
+        var ph = 0.0
+        val f0 = (900.0 + r.nextDouble() * 120) * pitch
+        for (i in out.indices) {
+            val x = i / out.size.toDouble()
+            val f = f0 * (1 + 0.5 * sin(PI * x)) * (1 + 0.04 * sin(2 * PI * 38 * x))
+            ph += 2 * PI * f / SR
+            val a = min(1.0, x / 0.04) * (1 - x).pow(1.5)
+            out[i] = (a * (sin(ph) + 0.35 * sin(2 * ph) + 0.15 * sin(3 * ph))).toFloat()
+        }
+        return out
+    }
+
+    /** A hollow bonk: a low knock with a woody resonance. */
+    private fun bonk(r: Random): FloatArray {
+        val out = FloatArray(n(0.18))
+        var ph = 0.0
+        for (i in out.indices) {
+            val t = i.toDouble() / SR
+            ph += 2 * PI * (180.0 + 120 * exp(-t / 0.01)) / SR
+            out[i] = (sin(ph) * env(i, 0.0005, 0.045)).toFloat()
+        }
+        ping(out, 0, 620.0, 0.03, 0.5f)
+        ping(out, 0, 1240.0, 0.012, 0.2f)
+        return out
+    }
+
+    /** Air rushing out of a popped slime bubble: noise sweeping down and fading. */
+    private fun hiss(r: Random): FloatArray {
+        val out = FloatArray(n(0.7))
+        val band = Band(1.4f)
+        for (i in out.indices) {
+            val x = i / out.size.toFloat()
+            if (i % 32 == 0) band.tune(3200f - 2400f * x)
+            out[i] = band.run(r.nextFloat() * 2 - 1) * min(1f, x / 0.02f) * (1 - x).pow(2f) * 1.4f
+        }
         return out
     }
 

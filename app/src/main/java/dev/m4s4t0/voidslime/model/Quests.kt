@@ -44,6 +44,16 @@ object Quests {
         QuestKind(Stat.MAGNET, "tool_magnet", listOf(15, 30), 0.8f, "toy:magnet") { "Hold the magnet over it for $it seconds" },
         QuestKind(Stat.WANDS, "tool_wand", listOf(5, 10), 2f, "toy:wand") { "Wave the bubble wand ${times(it)}" },
         QuestKind(Stat.GOLD_POPS, "coin", listOf(2, 4), 6f, "toy:wand") { "Pop ${s(it, "golden bubble")}" },
+        QuestKind(Stat.BLISTERS, "pic_blister", listOf(3, 6, 10), 2f) { "Blow up and pop ${s(it, "slime bubble")}" },
+        QuestKind(Stat.SPLATS, "pic_droplet", listOf(10, 20), 0.8f, "toy:slap") { "Knock off ${s(it, "droplet")}" },
+        QuestKind(Stat.SQUEEZES, "tool_squeeze", listOf(5, 10), 2f, "toy:squeeze") { "Squeeze it ${times(it)}" },
+        QuestKind(Stat.SCOOPS, "tool_scoop", listOf(5, 10), 2f, "toy:scoop") { "Scoop ${s(it, "blob")}" },
+        QuestKind(Stat.BONKS, "tool_hammer", listOf(10, 20), 1f, "toy:hammer") { "Bonk it ${times(it)}" },
+        QuestKind(Stat.CUTS, "tool_cutter", listOf(4, 8), 2.5f, "toy:cutter") { "Cut ${s(it, "heart")}" },
+        QuestKind(Stat.WHISKS, "tool_whisk", listOf(15, 30), 0.8f, "toy:whisk") { "Whisk it for $it seconds" },
+        QuestKind(Stat.DRYS, "tool_dryer", listOf(15, 30), 0.8f, "toy:dryer") { "Blow dry it for $it seconds" },
+        QuestKind(Stat.RACES, "flag", listOf(1, 2, 3), 8f, RACE_KEY) { "Finish ${s(it, "slime race")}" },
+        QuestKind(Stat.RACE_WINS, "trophy", listOf(1, 2), 14f, RACE_KEY) { "Win ${s(it, "slime race")}" },
     )
 
     fun kind(stat: String) = KINDS.firstOrNull { it.stat == stat }

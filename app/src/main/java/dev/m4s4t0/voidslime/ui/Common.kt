@@ -257,6 +257,8 @@ fun Choice(
     size: Dp = 62.dp,
     fill: Color? = null,
     icon: String? = null,
+    /** The level it opens at (shown instead of the price until then). */
+    need: Int = 1,
     onClick: () -> Unit,
 ) {
     Column(modifier.squishy(onClick), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -277,14 +279,15 @@ fun Choice(
                 }
             }
         }
-        if (locked) Coins(price, fontSize = 11.sp, icon = 13.dp)
+        if (locked && Game.level < need) LevelTag(need)
+        else if (locked) Coins(price, fontSize = 11.sp, icon = 13.dp)
         else Text(label, color = if (selected) Void.text else Void.dim, fontSize = 11.sp, maxLines = 1, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 2.dp))
     }
 }
 
 /** A bold picture card for the shop's worlds, dishes and molds: big art, name, and owned / price / in use. */
 @Composable
-fun ItemCard(icon: String, title: String, sub: String?, selected: Boolean, owned: Boolean, price: Int, modifier: Modifier = Modifier, art: Dp = 84.dp, ownedLabel: String = "Use", onClick: () -> Unit) {
+fun ItemCard(icon: String, title: String, sub: String?, selected: Boolean, owned: Boolean, price: Int, modifier: Modifier = Modifier, art: Dp = 84.dp, ownedLabel: String = "Use", need: Int = 1, onClick: () -> Unit) {
     Column(
         modifier.squishy(onClick).glass(RoundedCornerShape(20.dp), if (selected) Void.cyan else if (owned) Void.violet.copy(alpha = 0.6f) else Void.border, 0.86f)
             .padding(8.dp),
@@ -301,9 +304,19 @@ fun ItemCard(icon: String, title: String, sub: String?, selected: Boolean, owned
         when {
             selected -> Text("In use", color = Void.cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             owned -> Text(ownedLabel, color = Void.text, fontSize = 11.sp)
+            Game.level < need -> LevelTag(need)
             else -> Coins(price, fontSize = 12.sp, icon = 15.dp)
         }
     }
+}
+
+/** "Lv 4": what you're still too low a level for. */
+@Composable
+fun LevelTag(level: Int, modifier: Modifier = Modifier, fontSize: TextUnit = 11.sp) {
+    Text(
+        "Lv $level", color = Void.violet, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1,
+        modifier = modifier.clip(RoundedCornerShape(50)).background(Void.violet.copy(alpha = 0.18f)).padding(horizontal = 7.dp, vertical = 1.dp),
+    )
 }
 
 fun lerpWhite(c: Color, t: Float) = Color(c.red + (1 - c.red) * t, c.green + (1 - c.green) * t, c.blue + (1 - c.blue) * t, c.alpha)

@@ -18,6 +18,11 @@ import dev.m4s4t0.voidslime.model.Plate
 import dev.m4s4t0.voidslime.model.STICKERS
 import dev.m4s4t0.voidslime.model.Shapes
 import dev.m4s4t0.voidslime.model.World
+import dev.m4s4t0.voidslime.model.Vessel
+import dev.m4s4t0.voidslime.model.OrderKind
+import dev.m4s4t0.voidslime.model.Cup
+import dev.m4s4t0.voidslime.model.RACE_LEVEL
+import dev.m4s4t0.voidslime.model.levelOf
 import dev.m4s4t0.voidslime.model.iconOf
 import dev.m4s4t0.voidslime.audio.Song
 import dev.m4s4t0.voidslime.ui.Art
@@ -79,6 +84,25 @@ class ModelTest {
         }
     }
 
+    @Test fun specialOrdersWaitForTheirLevel() {
+        val rnd = Random(9)
+        val all: (String) -> Boolean = { true }
+        repeat(300) {
+            val lvl = 1 + it % 10
+            val o = Orders.generate(rnd, all, level = lvl, now = 1000L)
+            assertTrue(o.kind.level <= lvl)
+            if (o.kind == OrderKind.RUSH) assertTrue(o.expires > 1000L)
+            if (o.kind != OrderKind.REGULAR) assertEquals(o, Order.fromJson(JSONObject(o.toJson().toString())))
+        }
+    }
+
+    @Test fun lockedThingsHaveALevel() {
+        assertEquals(1, levelOf(key(Vessel.DISH)))
+        assertTrue(Vessel.entries.all { levelOf(key(it)) == it.level })
+        assertTrue(Toy.entries.all { levelOf(key(it)) == it.level })
+        assertTrue(Cup.entries.all { it.level >= RACE_LEVEL })
+    }
+
     @Test fun everyItemHasALabel() {
         for (b in Base.entries) assertTrue(label(key(b)).isNotBlank())
         for (a in AddIn.entries) assertTrue(label(key(a)).isNotBlank())
@@ -134,8 +158,8 @@ class ModelTest {
 
     @Test fun everyPictureTheGameAsksForExists() {
         val keys = Base.entries.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key) +
-            World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key)
-        val names = keys.mapNotNull(::iconOf) + STICKERS.map { it.icon } + Quests.KINDS.map { it.icon } + World.entries.map { it.backdrop } +
+            World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key) + Vessel.entries.map(::key)
+        val names = keys.mapNotNull(::iconOf) + STICKERS.map { it.icon } + Quests.KINDS.map { it.icon } + World.entries.map { it.backdrop } + Vessel.entries.map { "vessel_" + it.id } + listOf("race", "flag") +
             listOf("Mia", "Leo", "Nobody").map { "cust_" + Orders.faceOf(it) }
         for (n in names) assertTrue("missing art: $n", Art.ids.containsKey(n))
         assertTrue(COLORS.all { iconOf(key(it)) == null })

@@ -337,10 +337,10 @@ private fun NameStep(state: AppState, deliver: String?) {
         PillButton(deliver, false, Modifier.fillMaxWidth()) {
             val done = save()
             val id = state.pinnedOrder ?: return@PillButton
-            val face = Game.orders.firstOrNull { it.id == id }?.face ?: "mia"
-            val (stars, pay) = Game.fulfil(id, done)
+            val o = Game.orders.firstOrNull { it.id == id } ?: return@PillButton
+            val s = Game.fulfil(id, done)
             state.pinnedOrder = null
-            state.toasts += Toast(System.nanoTime(), "cust_$face", "Order delivered!", "", coins = pay, stars = stars)
+            state.toasts += servedToast(o, s)
             Audio.play(Snd.COIN, 0.9f)
         }
     }

@@ -60,7 +60,7 @@ private val TOOLS = listOf(
     ToolSlot(Tool.STRETCH, "Stretch"),
     ToolSlot(Tool.SQUISH, "Squish"),
     ToolSlot(Tool.ROLL, "Roll"),
-    ToolSlot(Tool.BUBBLE, "Bubbles"),
+    ToolSlot(Tool.BUBBLE, "Blow"),
 ) + Toy.entries.map { ToolSlot(Tool.valueOf(it.name), it.title.substringAfterLast(' ').replaceFirstChar { c -> c.uppercase() }, it) }
 
 @Composable
@@ -99,6 +99,7 @@ fun PlayScreen(state: AppState) {
             for (slot in TOOLS) {
                 val on = state.tool == slot.tool
                 val locked = slot.toy != null && !Game.isUnlocked(key(slot.toy))
+                val early = locked && Game.level < slot.toy!!.level
                 Column(
                     Modifier.fillMaxWidth().squishy { if (locked) buying = key(slot.toy!!) else state.tool = slot.tool }
                         .clip(RoundedCornerShape(18.dp))
@@ -111,7 +112,8 @@ fun PlayScreen(state: AppState) {
                         Pic(slot.icon, 46.dp, if (on) Modifier.bob(2.dp) else Modifier, alpha = if (locked) 0.5f else 1f)
                         if (locked) Pic("lock", 20.dp)
                     }
-                    if (locked) Coins(slot.toy!!.price, fontSize = 11.sp, icon = 13.dp)
+                    if (early) LevelTag(slot.toy!!.level)
+                    else if (locked) Coins(slot.toy!!.price, fontSize = 11.sp, icon = 13.dp)
                     else Text(slot.name, color = if (on) Void.text else Void.dim, fontSize = 11.sp, maxLines = 1, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
                 }
             }

@@ -47,6 +47,36 @@ object Shapes {
     fun plateMax(p: Plate) = maxR.getOrPut(p) { (0 until 360).maxOf { plateR(p, it / 360f * TAU) } }
     private val maxR = HashMap<Plate, Float>()
 
+    /** How tall a container's wall stands (the dish's is a low rim, see gl.Meshes.tray). */
+    fun vesselH(v: Vessel) = when (v) {
+        Vessel.DISH -> 0.22f
+        Vessel.BOWL -> 1.0f
+        Vessel.JAR -> 2.0f
+        Vessel.FISHBOWL -> 2.3f
+    }
+
+    /**
+     * The inside radius of a round container at height [y] (world units; the floor is y = 0). Above the top it
+     * carries straight on up, so a stretch pulled out the top doesn't fall through the glass. The dish isn't round:
+     * see [plateR].
+     */
+    fun vesselR(v: Vessel, y: Float): Float {
+        val yy = y.coerceIn(0f, vesselH(v))
+        return when (v) {
+            Vessel.DISH -> 1.85f
+            // A round-bottomed bowl: a quarter ellipse from a small flat floor up to the rim.
+            Vessel.BOWL -> { val t = yy / 1.0f; 0.85f + 1.0f * sqrt(max(0f, t * (2f - t))) }
+            // Straight sides, a small rounded fillet at the bottom.
+            Vessel.JAR -> if (yy < 0.15f) { val t = yy / 0.15f; 1.15f + 0.15f * sqrt(max(0f, t * (2f - t))) } else 1.3f
+            // A glass ball with its bottom cut flat and a mouth at the top.
+            Vessel.FISHBOWL -> sqrt(max(0f, 1.55f * 1.55f - (yy - 1.15f) * (yy - 1.15f)))
+        }
+    }
+
+    /** The widest a container gets (for the camera), and how high to look (its middle, roughly). */
+    fun vesselWide(v: Vessel, p: Plate) = if (v == Vessel.DISH) plateMax(p) else (0..40).maxOf { vesselR(v, it / 40f * vesselH(v)) } / 1.85f
+    fun vesselLook(v: Vessel) = when (v) { Vessel.DISH -> 0.3f; Vessel.BOWL -> 0.4f; Vessel.JAR -> 0.75f; Vessel.FISHBOWL -> 0.85f }
+
     /** How far a mold's footprint reaches at world angle [a], relative to a dome. */
     fun moldR(m: Mold, a: Float): Float {
         val l = local(a)

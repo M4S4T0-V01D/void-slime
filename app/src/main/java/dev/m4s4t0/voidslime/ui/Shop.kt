@@ -51,6 +51,9 @@ import dev.m4s4t0.voidslime.model.Plate
 import dev.m4s4t0.voidslime.model.Toy
 import dev.m4s4t0.voidslime.model.Tray
 import dev.m4s4t0.voidslime.model.World
+import dev.m4s4t0.voidslime.model.Vessel
+import dev.m4s4t0.voidslime.model.OrderKind
+import dev.m4s4t0.voidslime.model.levelOf
 import dev.m4s4t0.voidslime.model.colorOf
 import dev.m4s4t0.voidslime.model.iconOf
 import dev.m4s4t0.voidslime.model.key
@@ -74,6 +77,13 @@ fun ShopScreen(state: AppState) {
     /** Use it if it's owned, otherwise offer to buy it. */
     fun pick(k: String, use: () -> Unit) {
         if (Game.isUnlocked(k)) { use(); Audio.play(Snd.CLICK, 0.6f) } else buying = k
+    }
+    fun serve(o: Order, r: dev.m4s4t0.voidslime.model.Recipe) {
+        val s = Game.fulfil(o.id, r)
+        handing = null
+        Audio.play(if (s.stars == 3) Snd.DONE else Snd.COIN, 0.9f)
+        Haptics.buzz(Haptics.Kind.SUCCESS)
+        state.toasts += servedToast(o, s)
     }
     Column(Modifier.fillMaxSize().safe()) {
         GameBar("Slime shop", { state.go(Screen.HOME) }, icon = "shop", subtitle = "Make what customers ask for, earn coins, spend them on goodies") { CoinChip() }
@@ -106,6 +116,7 @@ fun ShopScreen(state: AppState) {
                 val gap = Arrangement.spacedBy(10.dp)
                 when (tab) {
                     ShopTab.ORDERS -> FlowRow(horizontalArrangement = gap, verticalArrangement = gap, maxItemsInEachRow = 2) {
+                        if (Game.orders.isEmpty()) Text("No customers right now. Check back soon!", color = Void.dim, fontSize = 13.sp)
                         for (o in Game.orders) OrderCard(o, Modifier.weight(1f), onMake = {
                             state.pinnedOrder = o.id
                             state.lab.startNew()
@@ -130,18 +141,28 @@ fun ShopScreen(state: AppState) {
                         FlowRow(horizontalArrangement = gap, verticalArrangement = gap) {
                             for (w in World.entries) {
                                 val k = key(w)
-                                ItemCard(w.icon, w.title, w.blurb, Game.world == w, Game.isUnlocked(k), w.price, Modifier.width(150.dp), art = 110.dp) {
+                                ItemCard(w.icon, w.title, w.blurb, Game.world == w, Game.isUnlocked(k), w.price, Modifier.width(150.dp), art = 110.dp, need = w.level) {
                                     pick(k) { Game.chooseWorld(w) }
                                 }
                             }
                         }
                     }
                     ShopTab.DISHES -> {
+                        SectionTitle("What it sits in")
+                        Text("Bowls and jars are deep: the slime slumps into them and climbs the sides. Dish shapes and colours go with the dish.", color = Void.dim, fontSize = 13.sp)
+                        FlowRow(horizontalArrangement = gap, verticalArrangement = gap) {
+                            for (v in Vessel.entries) {
+                                val k = key(v)
+                                ItemCard(v.icon, v.title, v.blurb, Game.vessel == v, Game.isUnlocked(k), v.price, Modifier.width(132.dp), art = 84.dp, need = v.level) {
+                                    pick(k) { Game.chooseVessel(v) }
+                                }
+                            }
+                        }
                         SectionTitle("Dish shape")
                         FlowRow(horizontalArrangement = gap, verticalArrangement = gap) {
                             for (p in Plate.entries) {
                                 val k = key(p)
-                                ItemCard(p.icon, p.title, null, Game.plate == p, Game.isUnlocked(k), p.price, Modifier.width(112.dp), art = 76.dp) {
+                                ItemCard(p.icon, p.title, null, Game.plate == p, Game.isUnlocked(k), p.price, Modifier.width(112.dp), art = 76.dp, need = p.level) {
                                     pick(k) { Game.choosePlate(p) }
                                 }
                             }
@@ -161,7 +182,7 @@ fun ShopScreen(state: AppState) {
                         FlowRow(horizontalArrangement = gap, verticalArrangement = gap) {
                             for (m in Mold.entries) {
                                 val k = key(m)
-                                ItemCard(m.icon, m.title, m.blurb, false, Game.isUnlocked(k), m.price, Modifier.width(132.dp), art = 84.dp, ownedLabel = "Owned") {
+                                ItemCard(m.icon, m.title, m.blurb, false, Game.isUnlocked(k), m.price, Modifier.width(132.dp), art = 84.dp, ownedLabel = "Owned", need = m.level) {
                                     if (!Game.isUnlocked(k)) buying = k
                                 }
                             }
@@ -189,13 +210,7 @@ fun ShopScreen(state: AppState) {
                     for (r in Game.jars.sortedByDescending { Orders.match(o, it) }.take(12)) {
                         val stars = Orders.stars(o, r)
                         Row(
-                            Modifier.fillMaxWidth().squishy {
-                                val (got, pay) = Game.fulfil(o.id, r)
-                                handing = null
-                                Audio.play(if (got == 3) Snd.DONE else Snd.COIN, 0.9f)
-                                Haptics.buzz(Haptics.Kind.SUCCESS)
-                                state.toasts += Toast(System.nanoTime(), "cust_" + o.face, if (got == 3) "Perfect! ${o.customer} loves it" else "${o.customer} says thanks!", "", coins = pay, stars = got)
-                            },
+                            Modifier.fillMaxWidth().squishy { serve(o, r) },
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
@@ -222,6 +237,7 @@ fun ShopScreen(state: AppState) {
                 World.entries.firstOrNull { key(it) == k }?.let(Game::chooseWorld)
                 Plate.entries.firstOrNull { key(it) == k }?.let(Game::choosePlate)
                 Tray.entries.firstOrNull { key(it) == k }?.let(Game::chooseTray)
+                Vessel.entries.firstOrNull { key(it) == k }?.let(Game::chooseVessel)
             }
         }
     }
@@ -230,11 +246,15 @@ fun ShopScreen(state: AppState) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OrderCard(o: Order, modifier: Modifier, onMake: () -> Unit, onHand: () -> Unit, onSkip: () -> Unit) {
-    Column(modifier.glass(RoundedCornerShape(22.dp), alpha = 0.88f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val edge = when (o.kind) { OrderKind.VIP -> Void.warn; OrderKind.RUSH -> Void.bad; OrderKind.PICKY -> Void.violet; else -> Void.border }
+    Column(modifier.glass(RoundedCornerShape(22.dp), edge, 0.88f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Pic("cust_" + o.face, 56.dp, Modifier.bob(2.dp, o.id.hashCode() and 7))
             Column(Modifier.weight(1f)) {
-                Text(o.customer, color = Void.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(o.customer, color = Void.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, false))
+                    if (o.kind != OrderKind.REGULAR) KindTag(o)
+                }
                 Text("“${o.line}”", color = Void.dim, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             Coins(o.reward, fontSize = 16.sp, icon = 22.dp)
@@ -242,8 +262,17 @@ private fun OrderCard(o: Order, modifier: Modifier, onMake: () -> Unit, onHand: 
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             o.base?.let { Wish(it.icon, it.title) }
             o.color?.let { Swatch(colorOf(it).title, colorOf(it).argb) }
-            o.addIn?.let { Wish(it.icon, it.title) }
+            o.color2?.let { Swatch("& " + colorOf(it).title, colorOf(it).argb) }
+            o.addIn?.let { Wish(it.icon, if (o.loads) "Loads of ${it.title.lowercase()}" else it.title) }
+            o.mold?.let { Wish(it.icon, it.title + " shape") }
             if (o.glitter) Wish("sparkles", "Glitter")
+            if (o.smiley) Wish("face", "Cute face")
+        }
+        o.prize?.takeIf { !Game.isUnlocked(it) }?.let { k ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Pic("gift", 24.dp)
+                Text("Make it perfect for a gift: ${label(k)}", color = Void.warn, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             PillButton("Make it", true) { tapFeedback(); onMake() }
@@ -268,6 +297,7 @@ private fun ToyCard(t: Toy, modifier: Modifier, onTry: () -> Unit, onBuy: () -> 
             Text(t.blurb, color = Void.dim, fontSize = 12.sp)
         }
         if (owned) PillButton("Play", true) { tapFeedback(); onTry() }
+        else if (Game.level < t.level) LevelTag(t.level, fontSize = 14.sp)
         else Box(Modifier.squishy(onBuy).glass(RoundedCornerShape(50), Void.warn, 0.6f).padding(horizontal = 12.dp, vertical = 8.dp)) {
             Coins(t.price, fontSize = 14.sp)
         }
@@ -308,7 +338,7 @@ private fun Supply(title: String, keys: List<Pair<String, String?>>, colors: Boo
             val name = label(k).removeSuffix(" base").removeSuffix(" glitter")
             Choice(
                 name, owned, !owned, priceOf(k), size = if (colors) 46.dp else 60.dp,
-                fill = if (colors) argbColor(colorOf(k.substringAfter(':')).argb) else null, icon = icon,
+                fill = if (colors) argbColor(colorOf(k.substringAfter(':')).argb) else null, icon = icon, need = levelOf(k),
             ) { if (!owned) onBuy(k) }
         }
     }
@@ -317,7 +347,9 @@ private fun Supply(title: String, keys: List<Pair<String, String?>>, colors: Boo
 @Composable
 fun BuyDialog(k: String, onDone: () -> Unit) {
     val price = priceOf(k)
-    val can = Game.coins >= price
+    val need = levelOf(k)
+    val early = Game.level < need
+    val can = Game.coins >= price && !early
     AlertDialog(
         onDismissRequest = onDone,
         containerColor = Void.panel,
@@ -330,7 +362,14 @@ fun BuyDialog(k: String, onDone: () -> Unit) {
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Coins(price, fontSize = 20.sp, icon = 28.dp)
-                Text(if (can) "Unlock it?" else "Not enough coins yet. Finish shop orders and play to earn more!", color = Void.dim)
+                when {
+                    early -> {
+                        LevelTag(need, fontSize = 16.sp)
+                        Text("Opens at level $need (you're level ${Game.level}). Play, fill orders and race to level up!", color = Void.dim)
+                    }
+                    can -> Text("Unlock it?", color = Void.dim)
+                    else -> Text("Not enough coins yet. Finish shop orders and play to earn more!", color = Void.dim)
+                }
             }
         },
         confirmButton = {
@@ -341,4 +380,32 @@ fun BuyDialog(k: String, onDone: () -> Unit) {
         },
         dismissButton = { PillButton(if (can) "Not now" else "OK", false, onClick = onDone) },
     )
+}
+
+/** "VIP", "Rush 4:12", "Picky": what sort of customer this is. */
+@Composable
+private fun KindTag(o: Order) {
+    val color = when (o.kind) { OrderKind.VIP -> Void.warn; OrderKind.RUSH -> Void.bad; else -> Void.violet }
+    var text = o.kind.title
+    if (o.kind == OrderKind.RUSH && o.expires > 0) {
+        var now by remember { mutableStateOf(System.currentTimeMillis()) }
+        androidx.compose.runtime.LaunchedEffect(o.id) { while (true) { kotlinx.coroutines.delay(1000); now = System.currentTimeMillis() } }
+        val left = ((o.expires - now) / 1000).coerceAtLeast(0)
+        text = "Rush ${left / 60}:${(left % 60).toString().padStart(2, '0')}"
+    }
+    Text(
+        text, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.18f)).padding(horizontal = 7.dp, vertical = 1.dp),
+    )
+}
+
+/** The thank-you toast after handing over a slime: stars, coins, a perfect-run combo, a VIP's gift. */
+fun servedToast(o: Order, s: Game.Served): Toast {
+    val title = when {
+        s.prize != null -> "${o.customer} gave you ${label(s.prize)}!"
+        s.stars == 3 && s.combo > 1 -> "Perfect x${s.combo}! ${o.customer} loves it"
+        s.stars == 3 -> "Perfect! ${o.customer} loves it"
+        else -> "${o.customer} says thanks!"
+    }
+    return Toast(System.nanoTime(), "cust_" + o.face, title, if (s.combo > 1) "Combo bonus!" else "", coins = s.pay, stars = s.stars)
 }

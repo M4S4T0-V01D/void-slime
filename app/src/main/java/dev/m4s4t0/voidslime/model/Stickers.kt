@@ -30,6 +30,26 @@ object Stat {
     const val QUESTS = "quests"
     /** Days with all three challenges done. */
     const val QUEST_DAYS = "quest_days"
+    /** Droplets knocked off the slime (slaps, bonks, squeezes...). */
+    const val SPLATS = "splats"
+    /** Droplets that found their way home. */
+    const val MERGES = "merges"
+    /** Air blisters blown into the slime and popped. */
+    const val BLISTERS = "blisters"
+    const val SQUEEZES = "squeezes"
+    const val SCOOPS = "scoops"
+    const val BONKS = "bonks"
+    const val CUTS = "cuts"
+    /** Seconds of whisking. */
+    const val WHISKS = "whisks"
+    /** Seconds of the hair dryer. */
+    const val DRYS = "drys"
+    const val RACES = "races"
+    const val RACE_WINS = "race_wins"
+    const val VIPS = "vips"
+    /** Perfect orders in a row right now, and the best run. */
+    const val COMBO = "combo"
+    const val COMBO_BEST = "combo_best"
 }
 
 data class Sticker(val id: String, val title: String, val desc: String, val stat: String, val goal: Int, val reward: Int) {
@@ -70,6 +90,19 @@ val STICKERS = listOf(
     Sticker("gold-25", "Gold digger", "Pop 25 golden bubbles", Stat.GOLD_POPS, 25, 60),
     Sticker("quest-10", "Go-getter", "Finish 10 daily challenges", Stat.QUESTS, 10, 50),
     Sticker("quest-days-5", "Challenge champ", "Finish all three challenges on 5 days", Stat.QUEST_DAYS, 5, 120),
+    Sticker("splat-50", "Splatter", "Knock 50 droplets off a slime", Stat.SPLATS, 50, 40),
+    Sticker("merge-100", "Back together", "Watch 100 droplets come home", Stat.MERGES, 100, 50),
+    Sticker("blister-25", "Big bubble", "Blow up and pop 25 slime bubbles", Stat.BLISTERS, 25, 40),
+    Sticker("squeeze-30", "Squeeze me", "Squeeze slime 30 times", Stat.SQUEEZES, 30, 40),
+    Sticker("scoop-25", "Ice cream man", "Scoop 25 blobs", Stat.SCOOPS, 25, 40),
+    Sticker("bonk-50", "Bonk!", "Bonk slime with the hammer 50 times", Stat.BONKS, 50, 40),
+    Sticker("cut-20", "Heart cutter", "Cut 20 hearts", Stat.CUTS, 20, 40),
+    Sticker("whisk-60", "Whisk it", "Whisk for a minute", Stat.WHISKS, 60, 50),
+    Sticker("dry-60", "Blow dry", "Blow the hair dryer for a minute", Stat.DRYS, 60, 50),
+    Sticker("race-1", "Off the line", "Finish a slime race", Stat.RACES, 1, 15),
+    Sticker("race-win-10", "Speed slime", "Win 10 slime races", Stat.RACE_WINS, 10, 120),
+    Sticker("vip-5", "Red carpet", "Make 5 VIPs perfectly happy", Stat.VIPS, 5, 100),
+    Sticker("combo-5", "On a roll", "Get 5 perfect orders in a row", Stat.COMBO_BEST, 5, 80),
 )
 
 /** Levels: each one needs a little more XP than the last. */

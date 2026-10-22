@@ -203,6 +203,117 @@ def _wand(ctx):
     bubble_at(ctx, 172, 140, 14, "#ffe066")
 
 
+@icon("tool_stir")
+def _stir(ctx):
+    slime(ctx, 96, 168, 84, 40, "#22e3ff", "happy")
+    arc_line(ctx, 96, 140, 44, 3.6, 5.9, "#ffffff", 6, 0.8)
+    blob(ctx, capsule(150, 24, 104, 138, 9), "#e8b27a", outline=INK, ow=7, shine=False)
+
+
+@icon("tool_squeeze")
+def _squeeze(ctx):
+    blob(ctx, [ellipse(96, 100, 44, 56), ellipse(40, 112, 22, 16), ellipse(152, 92, 22, 16)], "#ff7eb6", outline=INK, ow=7)
+    face(ctx, 96, 96, 26, "closed", blush=True)
+    for sx in (-1, 1):
+        line(ctx, [(96 + sx * 70, 40), (96 + sx * 54, 56)], "#ffe066", 8)
+        line(ctx, [(96 + sx * 70, 160), (96 + sx * 54, 146)], "#ffe066", 8)
+    blob(ctx, drop(150, 160, 14), "#ff7eb6", outline=INK, ow=5)
+
+
+@icon("tool_scoop")
+def _scoop(ctx):
+    ctx.save()
+    ctx.translate(96, 96)
+    ctx.rotate(-0.6)
+    blob(ctx, capsule(0, 20, 0, 92, 11), "#7ab8ff", outline=INK, ow=7, shine=False)
+    blob(ctx, ellipse(0, -20, 52, 44), "#cfe4ff", outline=INK, ow=8)
+    ctx.restore()
+    slime(ctx, 80, 72, 50, 40, "#6ef2b4", "happy")
+
+
+@icon("tool_hammer")
+def _hammer(ctx):
+    ctx.save()
+    ctx.translate(96, 96)
+    ctx.rotate(-0.7)
+    blob(ctx, capsule(0, -10, 0, 90, 10), "#ffe066", outline=INK, ow=7, shine=False)
+    blob(ctx, rrect(-62, -66, 124, 56, 26), "#ff4d6d", outline=INK, ow=8)
+    for sx in (-1, 1):
+        flat(ctx, rrect(sx * 62 - 10, -62, 20, 48, 9), "#ffe066", outline=INK, ow=5)
+    ctx.restore()
+    for i in range(3):
+        a = math.pi * 0.85 + i * 0.3
+        line(ctx, [(60 + math.cos(a) * 46, 70 + math.sin(a) * 46), (60 + math.cos(a) * 62, 70 + math.sin(a) * 62)], "#ffe066", 7)
+
+
+@icon("tool_cutter")
+def _cutter(ctx):
+    ctx.new_path()
+    heart(96, 100, 64)(ctx)
+    ctx.set_source_rgb(*INK)
+    ctx.set_line_width(30)
+    ctx.stroke()
+    heart(96, 100, 64)(ctx)
+    ctx.set_source_rgb(*c("#ff7eb6"))
+    ctx.set_line_width(16)
+    ctx.stroke()
+    blob(ctx, heart(96, 104, 30), "#a970ff", outline=INK, ow=5)
+
+
+@icon("tool_whisk")
+def _whisk(ctx):
+    ctx.save()
+    ctx.translate(96, 96)
+    ctx.rotate(0.5)
+    for k in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        ctx.new_path()
+        ctx.move_to(0, -6)
+        ctx.curve_to(k * 70, -40, k * 46, -96, 0, -96)
+        for cc, w in ((INK, 13), (c("#d7d3ea"), 6)):
+            ctx.save()
+            ctx.set_source_rgb(*cc)
+            ctx.set_line_width(w)
+            ctx.stroke_preserve()
+            ctx.restore()
+        ctx.new_path()
+    blob(ctx, capsule(0, 0, 0, 86, 13), "#6ef2b4", outline=INK, ow=7)
+    ctx.restore()
+
+
+@icon("tool_dryer")
+def _dryer(ctx):
+    blob(ctx, capsule(90, 110, 112, 172, 16), "#6ef2b4", outline=INK, ow=7, shine=False)
+    blob(ctx, [ellipse(96, 78, 52, 46), rrect(96, 58, 66, 40, 12)], "#6ef2b4", outline=INK, ow=8)
+    flat(ctx, circle(84, 78, 22), dark("#6ef2b4", 0.35), outline=INK, ow=4)
+    for i, y in enumerate((54, 78, 102)):
+        curve(ctx, (172, y), (180, y - 8), (190, y + 8), (198, y), "#22e3ff", 6)
+
+
+def vessel_icon(ctx, kind):
+    glass = "#cfeeff"
+    if kind == "dish":
+        dish_at(ctx, 96, 120, 1.0, "#a970ff")
+        slime(ctx, 96, 118, 50, 30, "#ff7eb6", "happy")
+    elif kind == "bowl":
+        slime(ctx, 96, 104, 54, 40, "#6ef2b4", "happy")
+        blob(ctx, [smooth([(18, 100), (174, 100), (160, 150), (120, 176), (72, 176), (32, 150)], 0.35)], "#ffb43c", outline=INK, ow=8)
+        flat(ctx, ellipse(96, 100, 78, 12), dark("#ffb43c", 0.25), outline=INK, ow=6)
+    elif kind == "jar":
+        blob(ctx, rrect(46, 52, 100, 128, 26), glass, outline=INK, ow=8, alpha=0.6)
+        slime(ctx, 96, 176, 46, 70, "#a970ff", "happy", faces=True)
+        blob(ctx, rrect(40, 26, 112, 30, 10), "#ff7eb6", outline=INK, ow=7, shine=False)
+        flat(ctx, capsule(62, 72, 62, 150, 6), "#ffffff", 0.6)
+    else:
+        blob(ctx, circle(96, 106, 72), glass, outline=INK, ow=8, alpha=0.55)
+        slime(ctx, 96, 168, 54, 52, "#22e3ff", "happy")
+        flat(ctx, ellipse(96, 40, 44, 10), dark(glass, 0.25), outline=INK, ow=6)
+        arc_line(ctx, 96, 106, 56, 3.6, 4.4, "#ffffff", 8, 0.8)
+
+
+for _k in ("dish", "bowl", "jar", "fishbowl"):
+    ICONS["vessel_" + _k] = (lambda k: lambda ctx: vessel_icon(ctx, k))(_k)
+
+
 # ---- slime bases -------------------------------------------------------------------------------------------
 
 def base_shape():

@@ -3,6 +3,7 @@ import math
 
 from artlib import *
 from icons import ICONS, sticker_badge
+from items import arrow
 
 # id (as in model/Stickers.kt), background, picture (an icon name), ribbon text
 STICKERS = [
@@ -39,6 +40,19 @@ STICKERS = [
     ("gold-25", "#ffe066", "coin", "25"),
     ("quest-10", "#ffb6d5", "target", "10"),
     ("quest-days-5", "#ffd36b", "trophy", "5"),
+    ("splat-50", "#ffb6d5", "splat", "50"),
+    ("merge-100", "#a8f0d0", "merge", "100"),
+    ("blister-25", "#9be7ff", "blister", "25"),
+    ("squeeze-30", "#ff9ec7", "tool_squeeze", "30"),
+    ("scoop-25", "#9be7ff", "tool_scoop", "25"),
+    ("bonk-50", "#ffe066", "tool_hammer", "50"),
+    ("cut-20", "#ffb6d5", "tool_cutter", "20"),
+    ("whisk-60", "#a8f0d0", "tool_whisk", None),
+    ("dry-60", "#d7d3ea", "tool_dryer", None),
+    ("race-1", "#a8f0d0", "flag", None),
+    ("race-win-10", "#ffd36b", "race", "10"),
+    ("vip-5", "#c9a8ff", "crown", "5"),
+    ("combo-5", "#ff9a6b", "bolt", "5"),
 ]
 
 
@@ -112,7 +126,35 @@ def _bag(ctx):
     blob(ctx, heart(96, 118, 22), "#ffe066", outline=INK, ow=4, shine=False)
 
 
-for name, fn in (("snap", _snap), ("balloon", _balloon), ("pretzel", _pretzel), ("museum", _museum), ("stars3", _stars3), ("bag", _bag)):
+def _splat(ctx):
+    blob(ctx, slime_dome(96, 168, 70, 50), "#ff7eb6", outline=INK, ow=7)
+    face(ctx, 96, 146, 28, "o")
+    for x, y, r in ((36, 70, 18), (150, 56, 22), (100, 34, 13), (166, 120, 12)):
+        blob(ctx, circle(x, y, r), "#ff7eb6", outline=INK, ow=5)
+
+
+def _merge(ctx):
+    blob(ctx, slime_dome(110, 170, 66, 70), "#6ef2b4", outline=INK, ow=7)
+    face(ctx, 116, 136, 28, "happy")
+    for x, y, r in ((28, 160, 16), (44, 120, 11)):
+        blob(ctx, circle(x, y, r), "#6ef2b4", outline=INK, ow=5)
+    arrow(ctx, 22, 84, 52, 100, "#ffe066", 7)
+
+
+def _blister(ctx):
+    blob(ctx, slime_dome(96, 172, 84, 54), "#a970ff", outline=INK, ow=7)
+    face(ctx, 70, 150, 22, "o")
+    blob(ctx, circle(122, 96, 44), "#e0c8ff", outline=INK, ow=7, alpha=0.85)
+    sparkle(ctx, 108, 80, 12)
+
+
+def _crown(ctx):
+    blob(ctx, poly([(30, 150), (24, 60), (64, 98), (96, 40), (128, 98), (168, 60), (162, 150)]), "#ffc93c", outline="#7a4300", ow=8)
+    for x, col in ((60, "#ff4d6d"), (96, "#22e3ff"), (132, "#6ef2b4")):
+        blob(ctx, circle(x, 128, 11), col, outline=INK, ow=4, shine=False)
+
+
+for name, fn in (("splat", _splat), ("droplet", _splat), ("merge", _merge), ("blister", _blister), ("crown", _crown), ("snap", _snap), ("balloon", _balloon), ("pretzel", _pretzel), ("museum", _museum), ("stars3", _stars3), ("bag", _bag)):
     ICONS["pic_" + name] = fn
 
 for sid, bg, pic, label in STICKERS:

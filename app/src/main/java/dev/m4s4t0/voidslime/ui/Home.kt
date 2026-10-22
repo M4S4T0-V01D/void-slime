@@ -32,6 +32,7 @@ import dev.m4s4t0.voidslime.audio.Audio
 import dev.m4s4t0.voidslime.audio.Haptics
 import dev.m4s4t0.voidslime.audio.Snd
 import dev.m4s4t0.voidslime.model.Game
+import dev.m4s4t0.voidslime.model.RACE_LEVEL
 import dev.m4s4t0.voidslime.model.STICKERS
 import dev.m4s4t0.voidslime.model.Stat
 import dev.m4s4t0.voidslime.model.iconOf
@@ -53,6 +54,11 @@ fun HomeScreen(state: AppState) {
             BigButton("flask", "Slime lab", "Make a brand new slime", accent = Void.cyan, phase = 1) { state.lab.startNew(); state.go(Screen.LAB) }
             BigButton("bubbles", "Bubble rush", "Best: ${Game.stats[Stat.RUSH_BEST] ?: 0}", accent = Void.ok, phase = 2) {
                 state.rush.result = null; state.go(Screen.RUSH)
+            }
+            val raceOpen = Game.level >= RACE_LEVEL
+            BigButton("race", "Slime racing", if (raceOpen) "Wins: ${Game.stats[Stat.RACE_WINS] ?: 0}" else "Opens at level $RACE_LEVEL", accent = Void.warn, phase = 3) {
+                if (raceOpen) state.go(Screen.RACE)
+                else state.toasts += Toast(System.nanoTime(), "lock", "Slime racing opens at level $RACE_LEVEL", "Play, make slimes and fill orders to level up")
             }
         }
 

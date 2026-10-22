@@ -2,6 +2,8 @@ package dev.m4s4t0.voidslime.gl
 
 import android.opengl.GLES20
 import android.util.Log
+import dev.m4s4t0.voidslime.model.Shapes
+import dev.m4s4t0.voidslime.model.Vessel
 import dev.m4s4t0.voidslime.sim.Icosphere
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -169,5 +171,44 @@ object Meshes {
             data[i * 6 + 3 + k] = s.verts[i * 3 + k]
         }
         return Mesh(data, ShortArray(s.tris.size) { s.tris[it].toShort() })
+    }
+
+    /**
+     * A bowl or jar standing on the dish: floor, the inside wall following [Shapes.vesselR], a rounded lip, the
+     * outside wall a little thicker, and the base. (The dish itself is [tray].)
+     */
+    fun vessel(v: Vessel): Mesh {
+        val h = Shapes.vesselH(v)
+        val th = if (v == Vessel.BOWL) 0.09f else 0.05f
+        val steps = 28
+        val pts = ArrayList<Pair<Float, Float>>()
+        val r0 = Shapes.vesselR(v, 0f)
+        pts += 0f to 0f
+        pts += r0 * 0.5f to 0f
+        for (k in 0..steps) { val y = h * k / steps; pts += Shapes.vesselR(v, y) to y }
+        val top = Shapes.vesselR(v, h)
+        val flare = if (v == Vessel.FISHBOWL) 0.05f else 0f
+        pts += top + flare + th * 0.2f to h + th * 0.45f
+        pts += top + flare + th * 0.6f to h + th * 0.6f
+        pts += top + flare + th to h + th * 0.3f
+        for (k in steps downTo 0) { val y = h * k / steps; pts += Shapes.vesselR(v, y) + th to y }
+        pts += r0 * 0.9f to -0.002f
+        pts += 0f to -0.002f
+        return lathe(pts, 72)
+    }
+
+    /** A unit cylinder from y = 0 to 1 with flat ends (tool handles, rake tines, finger bones). */
+    fun rod(seg: Int = 14): Mesh =
+        // Corners are doubled so the sides' normals point straight out instead of rounding over the ends.
+        lathe(listOf(0f to 1f, 0.999f to 1f, 1f to 0.999f, 1f to 0.001f, 0.999f to 0f, 0f to 0f), seg)
+
+    /** A unit-radius scoop: a half-sphere shell open at the top (y = 0), the outside down to y = -1. */
+    fun cup(): Mesh {
+        val pts = ArrayList<Pair<Float, Float>>()
+        val n = 14
+        for (k in 0..n) { val a = (k / n.toFloat()) * (Math.PI / 2).toFloat(); pts += 0.9f * sin(a) to -0.9f * cos(a) }
+        pts += 0.96f to 0.04f
+        for (k in n downTo 0) { val a = (k / n.toFloat()) * (Math.PI / 2).toFloat(); pts += sin(a) to -cos(a) }
+        return lathe(pts, 32)
     }
 }

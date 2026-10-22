@@ -4,8 +4,8 @@ import dev.m4s4t0.voidslime.model.AddIn
 import dev.m4s4t0.voidslime.sim.Grab
 import dev.m4s4t0.voidslime.sim.SphereCollider
 
-/** What a finger does to the slime. SLAP to WAND are bought in the shop (model.Toy, same names). */
-enum class Tool { NONE, POKE, STRETCH, SQUISH, ROLL, BUBBLE, STIR, SLAP, RAKE, STAMP, SHAKER, MAGNET, WAND }
+/** What a finger does to the slime. SLAP onwards are bought in the shop (model.Toy, same names). */
+enum class Tool { NONE, POKE, STRETCH, SQUISH, ROLL, BUBBLE, STIR, SLAP, RAKE, SHAKER, SQUEEZE, STAMP, SCOOP, HAMMER, CUTTER, WAND, MAGNET, WHISK, DRYER }
 
 /** Which screen the scene is on: Home spins slowly, the Lab stirs, Rush spawns bubbles to pop. */
 enum class SceneMode { HOME, PLAY, LAB, RUSH }
@@ -63,10 +63,39 @@ internal class Particle {
     var landed = false
 }
 
-/** A tool drawn as a ball: rake tines, the stamp, the magnet, the shaker. */
-internal class Prop(val x: Float, val y: Float, val z: Float, val r: Float, val rgb: FloatArray)
+/**
+ * A piece of a tool or of the hand: a ball at (x, y, z), a rod from there to (x2, y2, z2), or a scoop (a cup
+ * open at the top) centred there. [r] is the radius.
+ */
+internal class Prop(
+    val x: Float, val y: Float, val z: Float, val r: Float, val rgb: FloatArray,
+    val shape: Shape = Shape.BALL, val x2: Float = 0f, val y2: Float = 0f, val z2: Float = 0f,
+) {
+    enum class Shape { BALL, ROD, CUP }
+}
 
-internal enum class Kind { ORBIT, FINGER, GRAB, PALM, PIN, BUBBLE, STIR, RAKE, STAMP, SHAKER, MAGNET, DONE }
+/**
+ * A blob of slime that broke off (slapped, bonked, squeezed out, scooped). It bounces, sits a few seconds, then
+ * inches back to the slime and merges in. [vol] is its share of the whole slime.
+ */
+internal class Droplet(var vol: Float, val seed: Float) {
+    var x = 0f; var y = 0f; var z = 0f
+    var vx = 0f; var vy = 0f; var vz = 0f
+    var r = 0.1f
+    /** Seconds before it starts crawling home. */
+    var wait = 3f
+    var age = 0f
+    /** Squashed flat (1) or round (0), springing back. */
+    var squash = 0f
+    var squashVel = 0f
+    /** Held in the scoop. */
+    var held = false
+    var onFloor = false
+}
+
+internal enum class Kind {
+    ORBIT, FINGER, GRAB, PALM, PIN, BLISTER, STIR, RAKE, STAMP, SHAKER, MAGNET, SQUEEZE, SCOOP, CUTTER, WHISK, DRYER, DONE,
+}
 
 internal class Touch(val id: Int, var x: Float, var y: Float, val start: Float) {
     var kind = Kind.ORBIT
@@ -77,6 +106,10 @@ internal class Touch(val id: Int, var x: Float, var y: Float, val start: Float) 
     var pull = 0f
     var tickAt = 0f
     var bubble: Bubble? = null
+    var blister: dev.m4s4t0.voidslime.sim.Blister? = null
+    var drop: Droplet? = null
+    /** Surface normal where it started (the straw's direction). */
+    var nx = 0f; var ny = 1f; var nz = 0f
     var angle = 0f
     var turn = 0f
     var tickTurn = 0f
