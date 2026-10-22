@@ -314,6 +314,131 @@ for _k in ("dish", "bowl", "jar", "fishbowl"):
     ICONS["vessel_" + _k] = (lambda k: lambda ctx: vessel_icon(ctx, k))(_k)
 
 
+# ---- moods (slime faces) -----------------------------------------------------------------------------------
+
+def mood_face(ctx, x, y, s, mood):
+    """A big expressive face: s is the eye spacing. Matches the shapes the game draws on the slime."""
+    ink = INK
+    ex, er = s * 0.5, s * 0.2
+
+    def dot_eye(cx, cy, r=er, shine=True):
+        flat(ctx, ellipse(cx, cy, r, r * 1.15), ink)
+        if shine:
+            flat(ctx, circle(cx - r * 0.35, cy - r * 0.45, r * 0.42), "#ffffff")
+
+    def arc_eye(cx, cy, up=True):
+        arc_line(ctx, cx, cy + (er * 0.5 if up else -er * 0.5), er * 0.85, math.pi * 1.1 if up else math.pi * 0.1,
+                 math.pi * 1.9 if up else math.pi * 0.9, ink, er * 0.55)
+
+    def blush(both=True):
+        for sx in ((-1, 1) if both else (-1,)):
+            flat(ctx, ellipse(x + sx * ex * 1.45, y + er * 1.6, er * 1.1, er * 0.6), "#ff6b99", 0.6)
+
+    my = y + er * 2.0
+    for side, sx in enumerate((-1, 1)):
+        cx = x + sx * ex
+        if mood in ("happy", "sad", "angry", "smug") or (mood == "silly" and sx < 0):
+            if mood == "angry":
+                dot_eye(cx, y + er * 0.3)
+                line(ctx, [(cx + sx * er * 1.3, y - er * 1.5), (cx - sx * er * 1.0, y - er * 0.5)], ink, er * 0.55)
+            elif mood == "sad":
+                dot_eye(cx, y + er * 0.2, er * 1.1)
+                line(ctx, [(cx + sx * er * 1.2, y - er * 1.0), (cx - sx * er * 0.9, y - er * 1.7)], ink, er * 0.45)
+            elif mood == "smug":
+                flat(ctx, ellipse(cx, y + er * 0.4, er * 1.05, er * 0.6), ink)
+                line(ctx, [(cx - er * 1.2, y + er * 0.05), (cx + er * 1.2, y - er * 0.1)], ink, er * 0.45)
+            else:
+                dot_eye(cx, y)
+        elif mood in ("giggly", "silly"):
+            arc_eye(cx, y)
+        elif mood == "sleepy":
+            arc_eye(cx, y, up=False)
+        elif mood == "shocked":
+            blob(ctx, circle(cx, y, er * 1.25), "#ffffff", outline=ink, ow=er * 0.4, gloss=0, shine=False)
+            flat(ctx, circle(cx, y, er * 0.4), ink)
+        elif mood == "love":
+            blob(ctx, heart(cx, y, er * 1.25), "#ff3f6c", outline=ink, ow=er * 0.3, shine=False)
+        elif mood == "cool":
+            pass
+        elif mood == "dizzy":
+            blob(ctx, circle(cx, y, er * 1.6), "#ffffff", outline=ink, ow=er * 0.35, gloss=0, shine=False)
+            ctx.new_path()
+            for i in range(40):
+                a = i * 0.32 * (1 if sx < 0 else -1)
+                r = i * er * 0.033
+                (ctx.move_to if i == 0 else ctx.line_to)(cx + math.cos(a) * r, y + math.sin(a) * r)
+            ctx.set_source_rgb(*ink)
+            ctx.set_line_width(er * 0.36)
+            ctx.stroke()
+        elif mood == "starry":
+            blob(ctx, star(cx, y, er * 1.35, er * 0.65, round_=1.5), "#ffd23f", outline=ink, ow=er * 0.3, shine=False)
+    if mood == "cool":
+        blob(ctx, [rrect(x - ex - er * 1.5, y - er * 1.0, er * 3.0, er * 2.0, er * 0.7), rrect(x + ex - er * 1.5, y - er * 1.0, er * 3.0, er * 2.0, er * 0.7)],
+             "#2a1f4a", outline=ink, ow=er * 0.3, gloss=0, shine=False)
+        line(ctx, [(x - ex + er * 1.4, y - er * 0.5), (x + ex - er * 1.4, y - er * 0.5)], ink, er * 0.4)
+        for sx in (-1, 1):
+            line(ctx, [(x + sx * ex - er * 0.8, y + er * 0.5), (x + sx * ex - er * 0.1, y - er * 0.5)], "#8f7cc8", er * 0.3)
+    # Mouths.
+    if mood in ("happy",):
+        arc_line(ctx, x, my - er * 0.6, er * 0.75, math.pi * 0.15, math.pi * 0.85, ink, er * 0.42)
+    elif mood in ("giggly", "starry"):
+        ctx.new_path(); ctx.arc(x, my - er * 0.4, er * 0.85, 0, math.pi); ctx.close_path()
+        ctx.set_source_rgb(*ink); ctx.fill()
+        ctx.arc(x, my + er * 0.1, er * 0.38, 0, math.pi); ctx.set_source_rgb(*c("#ff6b8b")); ctx.fill()
+    elif mood == "sad":
+        arc_line(ctx, x, my + er * 0.5, er * 0.7, math.pi * 1.2, math.pi * 1.8, ink, er * 0.42)
+        blob(ctx, drop(x - ex - er * 0.2, y + er * 1.9, er * 0.5), "#74c7ff", outline=ink, ow=er * 0.2, shine=False)
+    elif mood == "angry":
+        blob(ctx, rrect(x - er * 1.1, my - er * 0.5, er * 2.2, er * 0.95, er * 0.25), "#ffffff", outline=ink, ow=er * 0.32, gloss=0, shine=False)
+        line(ctx, [(x - er * 1.0, my), (x + er * 1.0, my)], ink, er * 0.16)
+        for k in (-0.4, 0.4):
+            line(ctx, [(x + er * k, my - er * 0.45), (x + er * k, my + er * 0.4)], ink, er * 0.16)
+        for a in range(4):
+            ang = a * math.pi / 2 + math.pi / 4
+            arc_line(ctx, x + ex * 1.55 + math.cos(ang) * er * 0.8, y - er * 1.5 + math.sin(ang) * er * 0.8, er * 0.45,
+                     ang + math.pi * 0.7, ang + math.pi * 1.3, "#ff3b4e", er * 0.3)
+    elif mood == "silly":
+        arc_line(ctx, x, my - er * 0.6, er * 0.75, math.pi * 0.15, math.pi * 0.85, ink, er * 0.42)
+        blob(ctx, ellipse(x + er * 0.3, my + er * 0.4, er * 0.42, er * 0.55), "#ff6b8b", outline=ink, ow=er * 0.22, shine=False, gloss=0)
+    elif mood == "shocked":
+        flat(ctx, ellipse(x, my, er * 0.45, er * 0.6), ink)
+        blob(ctx, drop(x + ex * 1.5, y - er * 1.2, er * 0.5), "#74c7ff", outline=ink, ow=er * 0.2, shine=False)
+    elif mood in ("sleepy", "dizzy"):
+        ctx.new_path()
+        for i in range(21):
+            t = i / 20
+            px_ = x - er * 1.0 + t * er * 2.0
+            (ctx.move_to if i == 0 else ctx.line_to)(px_, my + math.sin(t * math.pi * 3) * er * 0.25)
+        ctx.set_source_rgb(*ink); ctx.set_line_width(er * 0.35); ctx.stroke()
+        if mood == "sleepy":
+            text(ctx, "z", x + ex * 1.6, y - er * 1.3, er * 2.2, "#dfe6ff", outline=ink, ow=er * 0.3)
+    elif mood == "love":
+        for sx in (-1, 1):
+            arc_line(ctx, x + sx * er * 0.4, my - er * 0.3, er * 0.42, math.pi * 0.05, math.pi * 0.95, ink, er * 0.32)
+    elif mood in ("cool", "smug"):
+        arc_line(ctx, x - er * 0.4, my - er * 1.0, er * 1.1, math.pi * 0.2, math.pi * 0.55, ink, er * 0.42)
+    if mood in ("happy", "giggly", "silly", "love", "starry"):
+        blush()
+    elif mood == "smug":
+        blush(False)
+
+
+MOOD_COLORS = {"happy": "#a970ff", "giggly": "#ff7eb6", "sad": "#7ab8ff", "angry": "#ff6b6b", "silly": "#6ef2b4",
+               "shocked": "#ffe066", "sleepy": "#b5a8ff", "love": "#ff9ec7", "cool": "#22e3ff", "dizzy": "#c6f26e",
+               "starry": "#ffb43c", "smug": "#e8b27a"}
+
+
+def mood_icon(mood):
+    def draw(ctx):
+        blob(ctx, slime_dome(96, 176, 86, 120), MOOD_COLORS[mood], outline=INK, ow=8)
+        mood_face(ctx, 96, 104, 74, mood)
+    return draw
+
+
+for _m in MOOD_COLORS:
+    ICONS["mood_" + _m] = mood_icon(_m)
+
+
 # ---- slime bases -------------------------------------------------------------------------------------------
 
 def base_shape():

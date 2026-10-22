@@ -266,7 +266,7 @@ private fun OrderCard(o: Order, modifier: Modifier, onMake: () -> Unit, onHand: 
             o.addIn?.let { Wish(it.icon, if (o.loads) "Loads of ${it.title.lowercase()}" else it.title) }
             o.mold?.let { Wish(it.icon, it.title + " shape") }
             if (o.glitter) Wish("sparkles", "Glitter")
-            if (o.smiley) Wish("face", "Cute face")
+            if (o.smiley) o.mood?.let { Wish(it.icon, "${it.title} face") } ?: Wish("face", "Cute face")
         }
         o.prize?.takeIf { !Game.isUnlocked(it) }?.let { k ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

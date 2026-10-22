@@ -41,6 +41,8 @@ data class Order(
     val mold: Mold? = null,
     /** Wants the slime to have a cute face. */
     val smiley: Boolean = false,
+    /** Wants that face to pull this [Mood] (with [smiley]). */
+    val mood: Mood? = null,
     /** Wants loads of [addIn] (the lab's top amount). */
     val loads: Boolean = false,
     val kind: OrderKind = OrderKind.REGULAR,
@@ -60,6 +62,7 @@ data class Order(
         color2?.let { put("color2", it) }
         mold?.let { put("mold", it.id) }
         if (smiley) put("smiley", true)
+        mood?.let { put("mood", it.id) }
         if (loads) put("loads", true)
         if (kind != OrderKind.REGULAR) put("kind", kind.id)
         prize?.let { put("prize", it) }
@@ -82,6 +85,7 @@ data class Order(
             color2 = color(j, "color2"),
             mold = j.optString("mold").takeIf { it.isNotEmpty() }?.let { id -> Mold.entries.firstOrNull { it.id == id } },
             smiley = j.optBoolean("smiley"),
+            mood = j.optString("mood").takeIf { it.isNotEmpty() }?.let(Mood::of),
             loads = j.optBoolean("loads"),
             kind = OrderKind.of(j.optString("kind")),
             prize = j.optString("prize").takeIf { it.isNotEmpty() },
@@ -161,28 +165,29 @@ object Orders {
         val mold = if ("mold" in pool) molds[rnd.nextInt(molds.size)] else null
         val glitter = "glitter" in pool
         val smiley = "smiley" in pool
+        val mood = if (smiley && level >= 3 && rnd.nextFloat() < 0.6f) Mood.entries.filter { it.level <= level }.let { it[rnd.nextInt(it.size)] } else null
         val count = listOfNotNull(base, color, color2, addIn, mold).size + listOf(glitter, smiley).count { it }
         val reward = ((14 + count * 12 + rnd.nextInt(10) + level * 2) * kind.pay).toInt()
         val prize = if (kind == OrderKind.VIP) {
             allKeys().filter { !unlocked(it) && levelOf(it) <= level + 1 && priceOf(it) in 1..320 }.let { if (it.isEmpty()) null else it[rnd.nextInt(it.size)] }
         } else null
-        val line = "${greetings.getValue(kind).let { it[rnd.nextInt(it.size)] }} ${describe(base, color, color2, addIn, loads, mold, glitter, smiley)}!"
+        val line = "${greetings.getValue(kind).let { it[rnd.nextInt(it.size)] }} ${describe(base, color, color2, addIn, loads, mold, glitter, smiley, mood)}!"
         return Order(
             "o" + rnd.nextLong().toULong().toString(36), who, face, base, color, addIn, glitter, reward, line,
-            color2 = color2, mold = mold, smiley = smiley, loads = loads, kind = kind, prize = prize,
+            color2 = color2, mold = mold, smiley = smiley, mood = mood, loads = loads, kind = kind, prize = prize,
             expires = if (kind == OrderKind.RUSH) now + RUSH_MILLIS else 0L,
         )
     }
 
     /** "a mint and lemon jelly bear slime with loads of stars, glitter and a cute face" */
-    private fun describe(base: Base?, color: String?, color2: String?, addIn: AddIn?, loads: Boolean, mold: Mold?, glitter: Boolean, smiley: Boolean): String {
+    private fun describe(base: Base?, color: String?, color2: String?, addIn: AddIn?, loads: Boolean, mold: Mold?, glitter: Boolean, smiley: Boolean, mood: Mood? = null): String {
         val cols = listOfNotNull(color, color2).map { colorOf(it).title.lowercase() }
         val shape = mold?.let { if (it.animal) it.title.lowercase() else "${it.title.lowercase()}-shaped" }
         val head = (listOfNotNull(cols.joinToString(" and ").ifEmpty { null }, base?.title?.lowercase(), shape) + "slime").joinToString(" ")
         val extras = listOfNotNull(
             addIn?.let { (if (loads) "loads of " else "") + it.title.lowercase() },
             if (glitter) "glitter" else null,
-            if (smiley) "a cute face" else null,
+            if (smiley) (if (mood != null) "${faceWord(mood)} face" else "a cute face") else null,
         )
         val tail = when (extras.size) {
             0 -> ""
@@ -193,6 +198,9 @@ object Orders {
         val article = if (what.first().lowercaseChar() in "aeiou") "an" else "a"
         return "$article $what"
     }
+
+    /** "a happy", "an angry", "a starstruck": for "... and an angry face". */
+    fun faceWord(m: Mood): String = m.title.lowercase().let { if (it.first() in "aeiou") "an $it" else "a $it" }
 
     /** How well [r] matches: the share of wishes met (0..1). The first colour counts most, but any of them will do. */
     fun match(o: Order, r: Recipe): Float {
@@ -208,7 +216,7 @@ object Orders {
         }
         o.mold?.let { want += 1; if (r.mold == it) got += 1 }
         if (o.glitter) { want += 1; if (r.glitter != Glitter.NONE) got += 1 }
-        if (o.smiley) { want += 1; if (r.face) got += 1 }
+        if (o.smiley) { want += 1; if (r.face) got += if (o.mood == null || o.mood == r.mood) 1f else 0.5f }
         return if (want == 0f) 1f else got / want
     }
 

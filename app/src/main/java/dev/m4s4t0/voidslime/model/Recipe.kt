@@ -20,6 +20,8 @@ data class Recipe(
     val mold: Mold = Mold.DOME,
     /** A cute face on the front (animal molds start with one). */
     val face: Boolean = false,
+    /** Which face it pulls (when it has one). */
+    val mood: Mood = Mood.HAPPY,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -32,6 +34,7 @@ data class Recipe(
         put("plays", plays)
         put("mold", mold.id)
         put("face", face)
+        put("mood", mood.id)
     }
 
     val crunchy get() = base.mat.crunchy || addIns.keys.any { it.crunchy }
@@ -55,6 +58,7 @@ data class Recipe(
                 plays = j.optInt("plays"),
                 mold = Mold.of(j.optString("mold")),
                 face = j.optBoolean("face"),
+                mood = Mood.of(j.optString("mood")),
             )
         }
 

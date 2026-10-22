@@ -1,5 +1,9 @@
 package dev.m4s4t0.voidslime.ui
 
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -107,7 +111,15 @@ fun Modifier.glass(shape: Shape = RoundedCornerShape(22.dp), border: Color = Voi
 @Composable
 fun Pic(name: String, size: Dp, modifier: Modifier = Modifier, alpha: Float = 1f) {
     val m = if (size == Dp.Unspecified) modifier else modifier.size(size)
-    Image(painterResource(Art.ids[name] ?: R.drawable.ic_star), null, m.alpha(alpha))
+    val id = Art.ids[name] ?: R.drawable.ic_star
+    if (name.startsWith("bg_") || name == "logo") {
+        Image(painterResource(id), null, m.alpha(alpha))
+    } else {
+        // Icons are pixel art: scale them without smoothing so the pixels stay square.
+        val bmp = ImageBitmap.imageResource(id)
+        val painter = remember(bmp) { BitmapPainter(bmp, filterQuality = FilterQuality.None) }
+        Image(painter, null, m.alpha(alpha))
+    }
 }
 
 /** A coin and an amount. */

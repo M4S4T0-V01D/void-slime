@@ -9,6 +9,7 @@ import dev.m4s4t0.voidslime.audio.Snd
 import dev.m4s4t0.voidslime.model.ADD_IN_LEVELS
 import dev.m4s4t0.voidslime.model.AddIn
 import dev.m4s4t0.voidslime.model.Glitter
+import dev.m4s4t0.voidslime.model.Mood
 import dev.m4s4t0.voidslime.model.Recipe
 import dev.m4s4t0.voidslime.model.STARTER_JARS
 import dev.m4s4t0.voidslime.model.Shapes
@@ -122,6 +123,18 @@ class Scene(private val listener: SceneListener) {
         val f = Shapes.faceSpot(dx, dy)
         (0 until body.n).maxBy { body.pattern[it * 3] * f[0] + body.pattern[it * 3 + 1] * f[1] + body.pattern[it * 3 + 2] * f[2] }
     }
+    /** The face it's pulling: its own mood, or for a moment a reaction to what just happened. */
+    val mood: Mood get() = if (reactT > 0f) reaction else recipe.mood
+    private var reaction = Mood.HAPPY
+    private var reactT = 0f
+
+    /** Pulls face [m] for [secs]; a bigger reaction (later in [REACTIONS]) isn't cut short by a smaller one. */
+    private fun react(m: Mood, secs: Float) {
+        if (reactT > 0f && REACTIONS.indexOf(m) < REACTIONS.indexOf(reaction)) return
+        reaction = m
+        reactT = max(reactT, secs)
+    }
+
     /** How closed the eyes are (0 open, 1 shut): blinks now and then, squints happily when squished. */
     var blink = 0f; private set
     private var nextBlink = 3f
@@ -816,6 +829,7 @@ class Scene(private val listener: SceneListener) {
 
     /** Pop! The air rushes out of [b] in a jet, the skin slaps back in, a few soap bubbles and maybe a blob fly off. */
     private fun popBlister(b: Blister, x: Float) {
+        react(Mood.SHOCKED, 0.9f)
         body.blisterTop(b, hp)
         val big = b.size / Blister.MAX
         body.popBlister(b)
@@ -923,6 +937,7 @@ class Scene(private val listener: SceneListener) {
 
     /** [n] blobs fly off outwards from (x, y, z). */
     private fun splash(x: Float, y: Float, z: Float, n: Int, power: Float) {
+        react(Mood.SHOCKED, 1.4f)
         var dx = x - body.cx; var dz = z - body.cz
         val l = hypot(dx, dz)
         if (l < 0.1f) { val a = rnd.nextFloat() * 6.28f; dx = cos(a); dz = sin(a) } else { dx /= l; dz /= l }
@@ -1749,6 +1764,9 @@ class Scene(private val listener: SceneListener) {
         updateItems(dt)
         updateBubbles(dt)
         updateParticles(dt)
+        reactT -= dt
+        if (touches.values.any { it.kind == Kind.FINGER || it.kind == Kind.PALM || it.kind == Kind.SQUEEZE }) react(Mood.GIGGLY, 0.4f)
+        if (slapEnergy > 3.2f) react(Mood.DIZZY, 2.2f)
         nextBlink -= dt
         if (nextBlink < 0f) nextBlink = 2.5f + rnd.nextFloat() * 3.5f
         val squint = if (working) min(1f, body.agitation * 1.5f) else 0f
@@ -1858,6 +1876,8 @@ class Scene(private val listener: SceneListener) {
         private fun sq(x: Float) = x * x
 
         /** Face spots on the front of the unit sphere: two eyes, two cheeks, the mouth. */
+        /** Reactions, smallest first. */
+        private val REACTIONS = listOf(Mood.GIGGLY, Mood.SHOCKED, Mood.DIZZY)
         val FACE = listOf(-0.27f to 0.5f, 0.27f to 0.5f, -0.5f to 0.3f, 0.5f to 0.3f, 0f to 0.36f)
 
         fun rgb(argb: Long) = floatArrayOf(((argb shr 16) and 0xFF) / 255f, ((argb shr 8) and 0xFF) / 255f, (argb and 0xFF) / 255f)

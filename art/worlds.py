@@ -408,13 +408,13 @@ def main():
         fn(ctx)
         save(surf, "bg_" + wid, shadow=False, quality=84)
         # Thumbnails: the same painting, cropped a little and with rounded corners.
-        surf2, ctx2 = canvas(384, 216)
-        rrect(0, 0, 384, 216, 30)(ctx2)
-        ctx2.clip()
-        ctx2.scale(384 / (W * 0.8), 216 / (H * 0.8))
-        ctx2.translate(-W * 0.1, -H * 0.05)
-        fn(ctx2)
-        save(surf2, "ic_world_" + wid, shadow=False, quality=88)
+        def thumb(ctx2, fn=fn):
+            rrect(0, 0, 384, 216, 30)(ctx2)
+            ctx2.clip()
+            ctx2.scale(384 / (W * 0.8), 216 / (H * 0.8))
+            ctx2.translate(-W * 0.1, -H * 0.05)
+            fn(ctx2)
+        save_img(pixel(thumb, 384, 216, grid=128, outline=False, shadow=False), "ic_world_" + wid)
     save(logo(), "logo", shadow=True, quality=92)
 
 

@@ -56,13 +56,38 @@ STICKERS = [
 ]
 
 
+# A 3 x 5 pixel font for the ribbon numbers, so they stay sharp on the pixel grid.
+DIGITS = {
+    "0": ("111", "101", "101", "101", "111"), "1": ("010", "110", "010", "010", "111"),
+    "2": ("111", "001", "111", "100", "111"), "3": ("111", "001", "011", "001", "111"),
+    "4": ("101", "101", "111", "001", "001"), "5": ("111", "100", "111", "001", "111"),
+    "6": ("111", "100", "111", "101", "111"), "7": ("111", "001", "010", "010", "010"),
+    "8": ("111", "101", "111", "101", "111"), "9": ("111", "101", "111", "001", "111"),
+}
+
+
+def pixel_digits(ctx, label, x, y):
+    """Draws label centred at (x, y) in whole pixels of the 64-pixel icon grid (3 canvas units each)."""
+    u = S / PIXEL
+    w = (len(label) * 4 - 1) * u
+    x0 = round((x - w / 2) / u) * u
+    y0 = round((y - 2.5 * u) / u) * u
+    for i, ch in enumerate(label):
+        for row, bits in enumerate(DIGITS[ch]):
+            for col, b in enumerate(bits):
+                if b == "1":
+                    ctx.rectangle(x0 + (i * 4 + col) * u, y0 + row * u, u, u)
+    ctx.set_source_rgb(1, 1, 1)
+    ctx.fill()
+
+
 def ribbon(ctx, x, y, label):
     w = 30 + len(label) * 15
     for sx in (-1, 1):
         blob(ctx, poly([(x + sx * (w / 2 - 6), y - 12), (x + sx * (w / 2 + 22), y - 8), (x + sx * (w / 2 + 12), y + 6),
                         (x + sx * (w / 2 + 22), y + 20), (x + sx * (w / 2 - 6), y + 18)]), "#c2125b", outline=INK, ow=5, shine=False, gloss=0)
     blob(ctx, rrect(x - w / 2, y - 18, w, 36, 8), "#ff4d8d", outline=INK, ow=5, shine=False, gloss=0.3)
-    text(ctx, label, x, y + 9, 26, "#ffffff", outline=INK, ow=0)
+    pixel_digits(ctx, label, x, y)
 
 
 def sticker(bg, pic, label):

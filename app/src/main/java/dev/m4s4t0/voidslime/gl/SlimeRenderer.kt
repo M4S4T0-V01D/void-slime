@@ -508,7 +508,7 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
         flushSprites()
     }
 
-    /** Eyes, cheeks and a smile riding on the skin (a recipe with a face), fading as they turn away. */
+    /** Eyes, cheeks and a mouth riding on the skin (a recipe with a face), in its mood, fading as they turn away. */
     private fun drawFace() {
         if (!scene.recipe.face || body.form < 0.5f) return
         glDepthMask(false)
@@ -516,18 +516,39 @@ class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceVie
         val pos = body.pos; val nor = body.normals; val eye = scene.eye
         val room = 0.35f + 0.65f * scene.room
         val grow = ((body.form - 0.5f) * 2f).coerceIn(0f, 1f)
+        val mood = scene.mood
+        val s = kotlin.math.cbrt(body.amount)
         for ((k, v) in scene.faceVerts.withIndex()) {
             val o = v * 3
-            val x = pos[o] + nor[o] * 0.025f; val y = pos[o + 1] + nor[o + 1] * 0.025f; val z = pos[o + 2] + nor[o + 2] * 0.025f
+            var x = pos[o] + nor[o] * 0.025f; var y = pos[o + 1] + nor[o + 1] * 0.025f; var z = pos[o + 2] + nor[o + 2] * 0.025f
             val ex = eye[0] - x; val ey = eye[1] - y; val ez = eye[2] - z
             val el = kotlin.math.sqrt(ex * ex + ey * ey + ez * ez)
             val facing = (nor[o] * ex + nor[o + 1] * ey + nor[o + 2] * ez) / el
             val a = ((facing - 0.05f) / 0.3f).coerceIn(0f, 1f) * grow
             if (a <= 0f) continue
             when (k) {
-                0, 1 -> put(x, y, z, 1f, 1f, 1f, a, 0.17f, 12f, scene.blink, room)
-                2, 3 -> put(x, y, z, 1f, 0.45f, 0.6f, a, 0.24f, 13f, 0f, room)
-                else -> put(x, y, z, 1f, 1f, 1f, a, 0.15f, 14f, 0f, room)
+                0, 1 -> {
+                    val variant = if (k == 0) mood.eyeL else mood.eyeR
+                    val spin = if (variant == 7) scene.time * 1.5f * (if (k == 0) 1f else -1f) else scene.blink
+                    put(x, y, z, 1f, 1f, 1f, a, 0.255f, 20f + variant * 2 + k, spin, room)
+                }
+                2, 3 -> {
+                    val variant = if (k == 2) mood.cheekL else mood.cheekR
+                    if (variant < 0) continue
+                    // Sweat sits up by the eye, the Z floats above, a tear rolls down the cheek.
+                    when (variant) {
+                        0 -> put(x, y, z, 1f, 0.45f, 0.6f, a, 0.24f, 70f, 0f, room)
+                        1 -> put(x, y - 0.03f * s, z, 1f, 1f, 1f, a, 0.11f, 71f, 0f, room)
+                        2 -> put(x, y + 0.3f * s, z, 1f, 1f, 1f, a, 0.14f, 72f, 0f, room)
+                        3 -> put(x, y, z, 1f, 1f, 1f, a, 0.12f, 73f, 0f, room)
+                        4 -> {
+                            val bob = (scene.time * 0.6f) % 1f
+                            put(x + nor[o] * 0.1f, y + (0.35f + bob * 0.25f) * s, z + nor[o + 2] * 0.1f, 1f, 1f, 1f, a * (1f - bob), 0.12f, 74f, 0f, room)
+                        }
+                        5 -> put(x + nor[o] * 0.05f, y + 0.28f * s, z + nor[o + 2] * 0.05f, 1f, 1f, 1f, a, 0.12f, 71f, 0f, room)
+                    }
+                }
+                else -> put(x, y, z, 1f, 1f, 1f, a, 0.2f, 50f + mood.mouth, 0f, room)
             }
         }
         flushSprites()

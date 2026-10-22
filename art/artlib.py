@@ -1,4 +1,5 @@
 """Drawing helpers for the game art: glossy, outlined "sticker" shapes in cairo, saved as webp with a soft shadow.
+Icons are then rendered again small and without antialiasing ([pixel]) for a crisp pixel-art look.
 
 Everything is drawn on a 192 px canvas (icons) or bigger (backdrops, logo). A shape is a function that adds
 subpaths to the context; several subpaths drawn together merge into one outlined blob.
@@ -75,6 +76,63 @@ def save(surf, name, shadow=True, quality=92, lossless=False, size=None):
         img = with_shadow(img, blur=max(2, img.width // 40), dy=max(2, img.width // 38))
     if size:
         img = img.resize(size, Image.LANCZOS)
+    img.save(os.path.join(PREVIEW, name + ".png"))
+    img.save(os.path.join(RES, name + ".webp"), "WEBP", quality=quality, lossless=lossless, method=6)
+    return img
+
+
+# ---- pixel art ---------------------------------------------------------------------------------------------
+
+PIXEL = 64      # icons are drawn on a 64 x 64 pixel grid...
+LEVELS = 8      # ...with 8 steps per colour channel, so gradients turn into bands
+INK8 = (34, 18, 61)
+
+
+def pixel(draw, w=S, h=S, grid=PIXEL, outline=True, shadow=True):
+    """Renders draw(ctx) (made for a w x h canvas) onto a grid-wide pixel canvas with no antialiasing, bands the
+    colours, adds a one-pixel outline and a hard shadow, and blows it back up to w x h with square pixels."""
+    gw, gh = grid, round(grid * h / w)
+    surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, gw, gh)
+    ctx = cairo.Context(surf)
+    ctx.set_antialias(cairo.ANTIALIAS_NONE)
+    fo = cairo.FontOptions()
+    fo.set_antialias(cairo.ANTIALIAS_NONE)
+    ctx.set_font_options(fo)
+    ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+    ctx.scale(gw / w, gh / h)
+    draw(ctx)
+    img = to_image(surf)
+    px = img.load()
+    out = Image.new("RGBA", (gw, gh), (0, 0, 0, 0))
+    op = out.load()
+    solid = [[px[x, y][3] >= 100 for x in range(gw)] for y in range(gh)]
+    step = 255 / (LEVELS - 1)
+    for y in range(gh):
+        for x in range(gw):
+            if solid[y][x]:
+                r, g, b, a = px[x, y]
+                op[x, y] = tuple(int(round(round(v / step) * step)) for v in (r, g, b)) + (255 if a >= 250 else 170,)
+    if outline:
+        for y in range(gh):
+            for x in range(gw):
+                if not solid[y][x] and any(0 <= x + dx < gw and 0 <= y + dy < gh and solid[y + dy][x + dx]
+                                           for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    op[x, y] = INK8 + (255,)
+    if shadow:
+        sh = Image.new("RGBA", (gw, gh), (0, 0, 0, 0))
+        sh.paste((14, 6, 30, 255), (0, 0), out.getchannel("A").point(lambda v: 100 if v else 0))
+        base = Image.new("RGBA", (gw, gh), (0, 0, 0, 0))
+        base.alpha_composite(sh, (1, 1))
+        base.alpha_composite(out)
+        out = base
+    return out.resize((w, h), Image.NEAREST)
+
+
+def save_img(img, name, quality=92, lossless=True):
+    """Saves a finished image (pixel art is stored lossless so the pixels stay crisp)."""
+    os.makedirs(RES, exist_ok=True)
+    os.makedirs(PREVIEW, exist_ok=True)
     img.save(os.path.join(PREVIEW, name + ".png"))
     img.save(os.path.join(RES, name + ".webp"), "WEBP", quality=quality, lossless=lossless, method=6)
     return img

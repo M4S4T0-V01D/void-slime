@@ -261,6 +261,10 @@ float sdStar(vec2 p, float r, float rf) {
     float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
     return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
 }
+float sdSeg(vec2 p, vec2 a, vec2 b) {
+    vec2 pa = p - a; vec2 ba = b - a;
+    return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+}
 float sdHeart(vec2 p) {
     p.x = abs(p.x);
     if (p.y + p.x > 1.0) return length(p - vec2(0.25, 0.75)) - 0.35355;
@@ -345,10 +349,120 @@ void main() {
         vec2 q = p * vec2(1.0, 1.7);
         d = length(q) / 1.7 - 0.5;
         a = 0.6 * smoothstep(0.9, 0.2, length(q));
-    } else {                       // face: a little smile
+    } else if (vShape < 14.5) {    // face: a little smile
         float r = length(p - vec2(0.0, 0.5));
         d = max(abs(r - 0.78) - 0.13, p.y - 0.12);
         col = vec3(0.1, 0.06, 0.18);
+    } else if (vShape < 45.0) {    // mood eyes: 20 + variant * 2 + side (0 the left eye); vAngle is the blink
+        float id = floor(vShape - 20.0 + 0.5);
+        float v = floor(id * 0.5 + 0.01);
+        vec2 u = p * 1.5;
+        vec2 q = vec2(id - v * 2.0 < 0.5 ? u.x : -u.x, u.y);   // +x points at the nose
+        vec3 ink = vec3(0.1, 0.06, 0.18);
+        float open = max(0.1, 1.0 - vAngle);
+        vec3 shine = vec3(1.0) * smoothstep(0.3, 0.2, length(u - vec2(-0.28, 0.32))) + vec3(0.9) * smoothstep(0.15, 0.08, length(u - vec2(0.26, -0.24)));
+        col = ink;
+        if (v < 0.5) {             // round
+            vec2 e = vec2(u.x, u.y / open);
+            d = (length(e) - 0.86) * open;
+            col = ink + shine * step(0.4, open);
+        } else if (v < 1.5) {      // ^ squeezed shut
+            d = max(abs(length(q - vec2(0.0, -0.45)) - 0.6) - 0.17, -0.3 - q.y);
+        } else if (v < 2.5) {      // angry: a lid slanting down to the nose, and a cross brow
+            vec2 e = vec2(q.x, (q.y + 0.15) / open);
+            float eye = max((length(e) - 0.7) * open, dot(q - vec2(0.0, 0.0), normalize(vec2(0.5, 1.0))));
+            d = min(eye, sdSeg(q, vec2(-0.8, 0.8), vec2(0.65, 0.3)) - 0.15);
+            col = ink + shine * step(eye, 0.0) * step(0.4, open) * 0.8;
+        } else if (v < 3.5) {      // sad: big wet eye, brows up at the middle
+            vec2 e = vec2(q.x, (q.y + 0.15) / open);
+            float eye = (length(e) - 0.72) * open;
+            d = min(eye, sdSeg(q, vec2(-0.75, 0.62), vec2(0.6, 0.98)) - 0.12);
+            col = mix(ink, vec3(0.35, 0.6, 1.0), smoothstep(-0.3, -0.75, q.y) * step(eye, 0.0)) + shine * step(eye, 0.0) * step(0.4, open);
+        } else if (v < 4.5) {      // heart
+            d = sdHeart(u * 1.0 + vec2(0.0, 0.55));
+            col = vec3(1.0, 0.25, 0.42) + vec3(0.7) * smoothstep(0.22, 0.1, length(u - vec2(-0.42, 0.25)));
+        } else if (v < 5.5) {      // wide: white with a tiny pupil
+            float r = length(vec2(u.x, u.y / open));
+            d = (r - 0.95) * open;
+            col = r > 0.78 ? ink : (length(u - vec2(0.0, -0.05)) < 0.3 ? ink : vec3(1.0));
+        } else if (v < 6.5) {      // droopy closed
+            d = max(abs(length(q - vec2(0.0, 0.5)) - 0.65) - 0.15, q.y + 0.05);
+        } else if (v < 7.5) {      // swirl
+            float r = length(u);
+            float t = r * 2.4 - atan(u.y, u.x) / 6.2831853 + vAngle;   // vAngle spins it
+            d = max((abs(fract(t) - 0.5) - 0.2) / 2.4, r - 0.9);
+        } else if (v < 8.5) {      // shades
+            vec2 b = abs(q - vec2(0.1, 0.05)) - vec2(0.75, 0.45);
+            float lens = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - 0.3;
+            d = min(lens, sdSeg(q, vec2(0.8, 0.35), vec2(1.6, 0.35)) - 0.1);
+            col = ink + vec3(0.55, 0.45, 0.75) * step(abs(u.x + u.y * 0.8 + 0.2), 0.13) * step(lens, 0.0);
+        } else if (v < 9.5) {      // star
+            d = sdStar(u, 0.98, 0.48);
+            col = vec3(1.0, 0.84, 0.2) + vec3(0.5) * smoothstep(0.25, 0.1, length(u - vec2(-0.2, 0.25)));
+        } else {                   // half-closed, smug
+            vec2 e = vec2(q.x, (q.y + 0.1) / open);
+            float eye = max((length(e) - 0.75) * open, q.y + 0.05 - q.x * 0.12);
+            d = min(eye, sdSeg(q, vec2(-0.75, 0.05), vec2(0.7, 0.13)) - 0.11);
+            col = ink + vec3(0.9) * smoothstep(0.15, 0.08, length(u - vec2(-0.25, -0.3))) * step(eye, 0.0);
+        }
+    } else if (vShape < 65.0) {    // mood mouths: 50 + variant
+        float v = floor(vShape - 50.0 + 0.5);
+        vec2 q = p * 1.3;
+        vec3 ink = vec3(0.1, 0.06, 0.18);
+        vec3 pink = vec3(1.0, 0.42, 0.55);
+        col = ink;
+        if (v < 0.5) {             // smile
+            d = max(abs(length(q - vec2(0.0, 0.5)) - 0.78) - 0.14, q.y - 0.12);
+        } else if (v < 1.5) {      // open laugh
+            d = max(length(q - vec2(0.0, 0.25)) - 0.75, q.y - 0.25);
+            col = length(q - vec2(0.0, -0.5)) < 0.33 ? pink : ink;
+        } else if (v < 2.5) {      // frown
+            d = max(abs(length(q - vec2(0.0, -0.75)) - 0.62) - 0.14, -0.4 - q.y);
+        } else if (v < 3.5) {      // o
+            float r = length(q * vec2(1.3, 1.0));
+            d = (r - 0.5) / 1.3;
+            col = r < 0.3 ? pink * 0.6 : ink;
+        } else if (v < 4.5) {      // tongue out
+            float smile = max(abs(length(q - vec2(0.0, 0.5)) - 0.78) - 0.14, q.y - 0.12);
+            float tongue = max(length(q - vec2(0.2, -0.38)) - 0.3, q.y + 0.2);
+            d = min(smile, tongue);
+            col = tongue < smile ? pink : ink;
+        } else if (v < 5.5) {      // wavy
+            d = max(abs(q.y + 0.05 - 0.13 * sin(q.x * 7.0)) - 0.11, abs(q.x) - 0.65);
+        } else if (v < 6.5) {      // smirk
+            d = max(abs(length(q - vec2(-0.35, 0.55)) - 0.75) - 0.13, max(q.y - 0.05, -0.75 - q.x));
+        } else if (v < 7.5) {      // gritted teeth
+            vec2 b = abs(q - vec2(0.0, -0.1)) - vec2(0.62, 0.28);
+            float box = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - 0.1;
+            d = box;
+            col = (box > -0.11 || abs(q.y + 0.1) < 0.05 || abs(fract(q.x * 2.2 + 0.5) - 0.5) < 0.07) ? ink : vec3(1.0);
+        } else {                   // cat :3
+            vec2 c = vec2(abs(q.x) - 0.3, q.y - 0.15);
+            d = max(abs(length(c) - 0.3) - 0.12, q.y - 0.15);
+        }
+    } else {                       // mood cheeks: 70 + variant
+        float v = floor(vShape - 70.0 + 0.5);
+        if (v < 0.5) {             // blush
+            vec2 q = p * vec2(1.0, 1.7);
+            d = length(q) / 1.7 - 0.5;
+            a = 0.6 * smoothstep(0.9, 0.2, length(q));
+        } else if (v < 1.5) {      // a tear / a bead of sweat
+            vec2 q = p * 1.1;
+            float drop = min(length(q - vec2(0.0, -0.25)) - 0.48, max(dot(vec2(abs(q.x), q.y - 0.85), normalize(vec2(0.9, 0.4))), -0.25 - q.y));
+            d = drop / 1.1;
+            col = vec3(0.45, 0.78, 1.0) + vec3(0.6) * smoothstep(0.18, 0.06, length(q - vec2(-0.16, -0.12)));
+            a = 0.92;
+        } else if (v < 2.5) {      // a cross mark
+            vec2 q = abs(p);
+            d = max(max(abs(length(q - vec2(0.85)) - 0.52) - 0.14, max(q.x, q.y) - 0.85), 0.14 - min(q.x, q.y));
+            col = vec3(1.0, 0.22, 0.3);
+        } else if (v < 3.5) {      // little heart
+            d = sdHeart(p * 1.2 + vec2(0.0, 0.6)) / 1.2;
+            col = vec3(1.0, 0.4, 0.6);
+        } else {                   // Z
+            d = min(min(sdSeg(p, vec2(-0.5, 0.55), vec2(0.5, 0.55)), sdSeg(p, vec2(0.5, 0.55), vec2(-0.5, -0.55))), sdSeg(p, vec2(-0.5, -0.55), vec2(0.5, -0.55))) - 0.14;
+            col = vec3(0.85, 0.9, 1.0);
+        }
     }
     float cover = clamp(0.5 - d / aa, 0.0, 1.0);
     if (cover * a * vCol.a < 0.01) discard;

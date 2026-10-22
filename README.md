@@ -56,7 +56,11 @@ All bought with coins in the shop:
   bubblegum, mint, wood, neon, candy, sunset, ice, starry, gold).
 - **What it sits in**: a flat Dish, a deep Bowl (level 2), a tall glass Jar (3) or a round Fishbowl (5).
 - **Molds**: the shape the slime sets in: Dome, Heart, Star, Cube, Flower, Pudding, Drop, and the animals
-  Bear, Bunny and Cat. Any slime can have a cute face.
+  Bear, Bunny and Cat.
+- **Faces**: any slime can have a face, in 12 moods: Happy, Giggly, Sad, Angry, Silly, Shocked, Sleepy,
+  Lovestruck, Cool, Dizzy, Starstruck and Smug (the later ones open with levels). Pick one in the lab or from
+  the face button while playing. Faces react too: giggly when poked, shocked when it splats, dizzy after a
+  flurry of slaps. Some customers ask for a particular face.
 
 ## And more
 - **Shelf**: every slime you've made, in a jar that shows its colours and mix-ins; sort by newest,

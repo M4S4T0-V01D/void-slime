@@ -317,3 +317,33 @@ enum class Mold(val title: String, val blurb: String, val price: Int, val animal
         fun of(id: String?) = entries.firstOrNull { it.id == id } ?: DOME
     }
 }
+
+/**
+ * A slime's face (when it has one). The numbers pick the sprite the renderer draws for each feature: eyes (left,
+ * right), mouth and cheeks (left, right; -1 none). See SPRITE_FS in gl/Shaders.kt for the shapes.
+ */
+enum class Mood(
+    val title: String, val blurb: String, val level: Int,
+    val eyeL: Int, val eyeR: Int, val mouth: Int, val cheekL: Int, val cheekR: Int,
+) {
+    HAPPY("Happy", "Little eyes and rosy cheeks. It blinks!", 1, 0, 0, 0, 0, 0),
+    GIGGLY("Giggly", "Squeezed-shut eyes and a big laugh", 1, 1, 1, 1, 0, 0),
+    SAD("Sad", "Wobbly brows and a single tear", 1, 3, 3, 2, 1, -1),
+    ANGRY("Angry", "Cross brows and gritted teeth. Grr!", 1, 2, 2, 7, -1, 2),
+    SILLY("Silly", "A wink and a tongue out", 2, 0, 1, 4, 0, 0),
+    SHOCKED("Shocked", "Wide eyes, little O mouth, a bead of sweat", 2, 5, 5, 3, -1, 5),
+    SLEEPY("Sleepy", "Droopy eyes and a floating Z", 2, 6, 6, 5, -1, 4),
+    LOVE("Lovestruck", "Heart eyes and a cat smile", 3, 4, 4, 8, 3, 3),
+    COOL("Cool", "Shades on and a smirk", 3, 8, 8, 6, -1, -1),
+    DIZZY("Dizzy", "Spinning swirly eyes", 4, 7, 7, 5, -1, -1),
+    STARRY("Starstruck", "Sparkling star eyes", 4, 9, 9, 1, 0, 0),
+    SMUG("Smug", "Half-closed eyes and a know-it-all smirk", 5, 10, 10, 6, 0, -1),
+    ;
+
+    val id get() = name.lowercase()
+    val icon get() = "mood_$id"
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id } ?: HAPPY
+    }
+}

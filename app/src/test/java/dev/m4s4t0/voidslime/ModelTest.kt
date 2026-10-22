@@ -19,6 +19,7 @@ import dev.m4s4t0.voidslime.model.STICKERS
 import dev.m4s4t0.voidslime.model.Shapes
 import dev.m4s4t0.voidslime.model.World
 import dev.m4s4t0.voidslime.model.Vessel
+import dev.m4s4t0.voidslime.model.Mood
 import dev.m4s4t0.voidslime.model.OrderKind
 import dev.m4s4t0.voidslime.model.Cup
 import dev.m4s4t0.voidslime.model.RACE_LEVEL
@@ -159,7 +160,7 @@ class ModelTest {
     @Test fun everyPictureTheGameAsksForExists() {
         val keys = Base.entries.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key) +
             World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key) + Vessel.entries.map(::key)
-        val names = keys.mapNotNull(::iconOf) + STICKERS.map { it.icon } + Quests.KINDS.map { it.icon } + World.entries.map { it.backdrop } + Vessel.entries.map { "vessel_" + it.id } + listOf("race", "flag") +
+        val names = keys.mapNotNull(::iconOf) + STICKERS.map { it.icon } + Quests.KINDS.map { it.icon } + World.entries.map { it.backdrop } + Vessel.entries.map { "vessel_" + it.id } + Mood.entries.map { it.icon } + listOf("race", "flag") +
             listOf("Mia", "Leo", "Nobody").map { "cust_" + Orders.faceOf(it) }
         for (n in names) assertTrue("missing art: $n", Art.ids.containsKey(n))
         assertTrue(COLORS.all { iconOf(key(it)) == null })
@@ -180,6 +181,18 @@ class ModelTest {
         val r = Recipe("s1", "Bun", Base.JELLY, listOf(red), mold = Mold.BUNNY, face = true)
         assertEquals(r, Recipe.fromJson(JSONObject(r.toJson().toString())))
         assertEquals(Mold.DOME, Recipe.fromJson(JSONObject("""{"id":"x","base":"jelly","colors":[]}""")).mold)
+        val angry = r.copy(mood = Mood.ANGRY)
+        assertEquals(angry, Recipe.fromJson(JSONObject(angry.toJson().toString())))
+        assertEquals(Mood.HAPPY, Recipe.fromJson(JSONObject("""{"id":"x","base":"jelly","colors":[]}""")).mood)
+    }
+
+    @Test fun ordersCanAskForAMood() {
+        val o = Order("o", "Mia", "mia", null, null, null, false, 50, "", smiley = true, mood = Mood.SAD)
+        assertEquals(o, Order.fromJson(JSONObject(o.toJson().toString())))
+        val sad = Recipe("s", "x", Base.JELLY, listOf("mint"), face = true, mood = Mood.SAD)
+        assertEquals(1f, Orders.match(o, sad), 1e-6f)
+        assertEquals(0.5f, Orders.match(o, sad.copy(mood = Mood.HAPPY)), 1e-6f)
+        assertEquals(0f, Orders.match(o, sad.copy(face = false)), 1e-6f)
     }
 
     @Test fun dishOutlinesStayDishSized() {

@@ -11,7 +11,7 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from artlib import PREVIEW, RES, ROOT, S, canvas, save  # noqa: E402
+from artlib import PREVIEW, RES, ROOT, pixel, save_img  # noqa: E402
 import icons  # noqa: E402
 
 KOTLIN = os.path.join(ROOT, "app/src/main/java/dev/m4s4t0/voidslime/ui/Art.kt")
@@ -43,9 +43,7 @@ def main():
             names.append(res)
             if only and not any(name.startswith(o) for o in only):
                 continue
-            surf, ctx = canvas()
-            fn(ctx)
-            save(surf, res)
+            save_img(pixel(fn), res)
     if not only or "world" in only:
         import worlds
         worlds.main()

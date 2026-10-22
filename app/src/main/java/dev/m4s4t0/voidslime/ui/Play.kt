@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +42,7 @@ import dev.m4s4t0.voidslime.audio.Snd
 import dev.m4s4t0.voidslime.gl.Tool
 import dev.m4s4t0.voidslime.model.Base
 import dev.m4s4t0.voidslime.model.Game
+import dev.m4s4t0.voidslime.model.Mood
 import dev.m4s4t0.voidslime.model.Stat
 import dev.m4s4t0.voidslime.model.Toy
 import dev.m4s4t0.voidslime.model.key
@@ -67,6 +69,8 @@ private val TOOLS = listOf(
 fun PlayScreen(state: AppState) {
     val r = Game.current
     var buying by remember { mutableStateOf<String?>(null) }
+    var faces by remember { mutableStateOf(false) }
+    if (faces) FaceDialog { faces = false }
     buying?.let { k ->
         BuyDialog(k) {
             buying = null
@@ -86,6 +90,7 @@ fun PlayScreen(state: AppState) {
                 Audio.play(Snd.CLICK, 0.6f, 0.7f)
                 if (!state.lights && r.base == Base.GLOW) Game.add(Stat.LIGHTS_OFF)
             }
+            RoundIcon(if (r.face) r.mood.icon else "face", size = 44.dp, on = r.face) { faces = true }
             RoundIcon("ballup", size = 44.dp) { state.view.scene { ballUp() } }
             RoundIcon("zen", size = 44.dp) { state.zen = true }
             CoinChip()
@@ -119,6 +124,27 @@ fun PlayScreen(state: AppState) {
             }
         }
     }
+}
+
+/** Change the face of the slime you're playing with. */
+@Composable
+private fun FaceDialog(onDone: () -> Unit) {
+    val r = Game.current
+    AlertDialog(
+        onDismissRequest = onDone,
+        containerColor = Void.panel,
+        title = { Text(if (r.face) "${r.mood.title} face" else "Give it a face?", color = Void.text) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (r.face) r.mood.blurb else "Pick a face and your slime will pull it. It reacts when you play, too!", color = Void.dim, fontSize = 13.sp)
+                MoodPicker(r.mood.takeIf { r.face } ?: Mood.HAPPY) { m -> Game.saveJar(Game.current.copy(face = true, mood = m)) }
+            }
+        },
+        confirmButton = { PillButton("Done", true, onClick = onDone) },
+        dismissButton = {
+            if (r.face) PillButton("No face", false) { Game.saveJar(Game.current.copy(face = false)); onDone() }
+        },
+    )
 }
 
 private const val RUSH_SECONDS = 45

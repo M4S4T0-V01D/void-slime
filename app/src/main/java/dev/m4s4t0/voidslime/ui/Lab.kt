@@ -51,6 +51,7 @@ import dev.m4s4t0.voidslime.model.COLORS
 import dev.m4s4t0.voidslime.model.Game
 import dev.m4s4t0.voidslime.model.Glitter
 import dev.m4s4t0.voidslime.model.Mold
+import dev.m4s4t0.voidslime.model.Mood
 import dev.m4s4t0.voidslime.model.Names
 import dev.m4s4t0.voidslime.model.Orders
 import dev.m4s4t0.voidslime.model.Recipe
@@ -234,13 +235,14 @@ fun LabScreen(state: AppState) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Pic("face", 40.dp)
+                            Pic(if (r.face) r.mood.icon else "face", 40.dp)
                             Column(Modifier.weight(1f)) {
-                                Text("Cute face", color = Void.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("Little eyes and rosy cheeks. It blinks!", color = Void.dim, fontSize = 12.sp)
+                                Text(if (r.face) "${r.mood.title} face" else "Cute face", color = Void.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(if (r.face) r.mood.blurb else "Give it eyes and a mouth. It blinks!", color = Void.dim, fontSize = 12.sp)
                             }
                             Pic(if (r.face) "check" else "star_off", 28.dp)
                         }
+                        if (r.face) MoodPicker(r.mood) { lab.draft = r.copy(mood = it) }
                     }
                     LabStep.STIR -> {
                         if (!lab.activated) {
@@ -349,4 +351,20 @@ private fun NameStep(state: AppState, deliver: String?) {
         "Tip: the shop's customers pay coins for slimes that match their order.", color = Void.dim, fontSize = 12.sp,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, Void.border, RoundedCornerShape(12.dp)).padding(10.dp),
     )
+}
+
+/** A row of faces to pick from; the fancier ones open with levels. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun MoodPicker(current: Mood, onPick: (Mood) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (m in Mood.entries) {
+            Choice(m.title, current == m, Game.level < m.level, 0, size = 46.dp, icon = m.icon, need = m.level) {
+                if (Game.level >= m.level) {
+                    onPick(m)
+                    Audio.play(Snd.SQUISH, 0.6f)
+                }
+            }
+        }
+    }
 }
