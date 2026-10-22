@@ -1,5 +1,8 @@
 package dev.m4s4t0.voidslime.gl
 
+import android.content.res.Resources
+import android.graphics.BitmapFactory
+import android.opengl.GLES20
 import android.opengl.GLES20.GL_BACK
 import android.opengl.GLES20.GL_BLEND
 import android.opengl.GLES20.GL_COLOR_BUFFER_BIT
@@ -30,19 +33,32 @@ import android.opengl.GLES20.glEnableVertexAttribArray
 import android.opengl.GLES20.glVertexAttribPointer
 import android.opengl.GLES20.glViewport
 import android.opengl.GLSurfaceView
+import android.opengl.GLUtils
 import android.opengl.Matrix
 import dev.m4s4t0.voidslime.model.Glitter
+import dev.m4s4t0.voidslime.model.Plate
+import dev.m4s4t0.voidslime.model.Shapes
+import dev.m4s4t0.voidslime.model.World
+import dev.m4s4t0.voidslime.ui.Art
 import dev.m4s4t0.voidslime.model.Tray
 import dev.m4s4t0.voidslime.model.colorOf
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.max
+import kotlin.math.sin
 import kotlin.math.min
 
 /** Draws a [Scene]: backdrop, dish, shadow, the slime with its add-ins, tools, bubbles and sparks. */
-class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
+class SlimeRenderer(val scene: Scene, private val res: Resources) : GLSurfaceView.Renderer {
     @Volatile var tray: Tray = Tray.VOID
+    @Volatile var world: World = World.VOID
+    @Volatile var plate: Plate = Plate.ROUND
+    private var builtPlate: Plate? = null
+    private var texWorld: World? = null
+    private var tex = 0
+    private var texW = 1
+    private var texH = 1
 
     private lateinit var pSlime: Program
     private lateinit var pSolid: Program
@@ -82,7 +98,9 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         pBubble = Program(Shaders.BUBBLE_VS, Shaders.BUBBLE_FS)
         pShadow = Program(Shaders.SHADOW_VS, Shaders.SHADOW_FS)
         pBack = Program(Shaders.BACK_VS, Shaders.BACK_FS)
-        trayMesh = Meshes.tray()
+        builtPlate = null
+        texWorld = null
+        tex = 0
         pinMesh = Meshes.rollingPin()
         palmMesh = Meshes.palm()
         bubbleMesh = Meshes.sphere(2)
@@ -101,6 +119,13 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         val now = System.nanoTime()
         val dt = if (last == 0L) 1f / 60f else ((now - last) / 1e9f).coerceIn(1f / 240f, 1f / 20f)
         last = now
+        val pl = plate
+        if (pl != builtPlate) {
+            builtPlate = pl
+            trayMesh = if (pl == Plate.ROUND) Meshes.tray() else Meshes.tray({ Shapes.plateR(pl, it) }, 240)
+            body.plate = pl
+        }
+        loadWorld()
         scene.update(dt)
         colors()
 
@@ -135,6 +160,7 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         }
         glDisable(GL_CULL_FACE)
         glEnable(GL_BLEND)
+        drawFace()
         drawTools()
         glDepthMask(false)
         drawBubbles()
@@ -142,13 +168,44 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         glDepthMask(true)
     }
 
+    /** The painted backdrop for [world], uploaded when it changes (Void has none: it's drawn by the shader). */
+    private fun loadWorld() {
+        val w = world
+        if (w == texWorld) return
+        texWorld = w
+        if (tex != 0) { GLES20.glDeleteTextures(1, intArrayOf(tex), 0); tex = 0 }
+        if (w == World.VOID) return
+        val id = Art.ids[w.backdrop] ?: return
+        val bmp = BitmapFactory.decodeResource(res, id, BitmapFactory.Options().apply { inScaled = false }) ?: return
+        val ids = IntArray(1)
+        GLES20.glGenTextures(1, ids, 0)
+        tex = ids[0]
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
+        texW = bmp.width; texH = bmp.height
+        bmp.recycle()
+    }
+
     private fun colors() {
         val l = scene.look
+        val w = texWorld
         for (k in 0 until 3) {
             envTop[k] = min(1f, l.bg[k] + (l.accent[k] - l.bg[k]) * 0.3f + 0.35f)
             envBot[k] = l.bg[k] * 0.6f + l.accent2[k] * 0.08f
             backTop[k] = l.bg[k] + (l.accent[k] - l.bg[k]) * 0.16f
             backBot[k] = l.bg[k] * 0.75f + l.accent2[k] * 0.06f
+        }
+        // A painted world: the slime reflects its sky.
+        if (w != null && w != World.VOID && tex != 0) {
+            val top = Scene.rgb(w.skyTop); val bot = Scene.rgb(w.skyBottom)
+            for (k in 0 until 3) {
+                envTop[k] = min(1f, top[k] * 0.85f + 0.15f)
+                envBot[k] = bot[k] * 0.7f
+            }
         }
         val cs = scene.recipe.colors
         Scene.rgb(colorOf(cs[0]).argb).copyInto(c0)
@@ -169,6 +226,24 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
         p.use()
         p.v3("uTop", backTop); p.v3("uBot", backBot); p.v3("uGlow", scene.look.accent)
         p.f("uRoom", scene.room); p.f("uTime", scene.time); p.v2("uRes", scene.width.toFloat(), scene.height.toFloat())
+        val w = texWorld ?: World.VOID
+        p.f("uFx", w.fx.ordinal.toFloat())
+        if (tex != 0) {
+            // Cover the screen, a little zoomed so it can drift as the camera turns.
+            val a = scene.width / scene.height.toFloat()
+            val ta = texW / texH.toFloat()
+            val sx = if (a > ta) 1f else a / ta
+            val sy = if (a > ta) ta / a else 1f
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex)
+            GLES20.glUniform1i(p.u("uTex"), 0)
+            p.f("uHasTex", 1f)
+            p.v2("uScale", sx * 0.92f, sy * 0.92f)
+            p.v2("uOff", sin(scene.cameraYaw - Shapes.FRONT_YAW) * 0.035f * sx, (scene.cameraPitch - 0.64f) * -0.03f * sy)
+        } else {
+            p.f("uHasTex", 0f)
+            p.v2("uScale", 1f, 1f); p.v2("uOff", 0f, 0f)
+        }
         drawQuad(p)
         glDepthMask(true)
     }
@@ -328,6 +403,32 @@ class SlimeRenderer(val scene: Scene) : GLSurfaceView.Renderer {
             put(it.x, it.y, it.z, it.r, it.g, it.b, 1f, it.size, it.addIn.shape.ordinal.toFloat(), it.angle + it.spin * t * 0.1f, it.lit * room)
         }
         flushSprites()
+    }
+
+    /** Eyes, cheeks and a smile riding on the skin (a recipe with a face), fading as they turn away. */
+    private fun drawFace() {
+        if (!scene.recipe.face || body.form < 0.5f) return
+        glDepthMask(false)
+        beginSprites()
+        val pos = body.pos; val nor = body.normals; val eye = scene.eye
+        val room = 0.35f + 0.65f * scene.room
+        val grow = ((body.form - 0.5f) * 2f).coerceIn(0f, 1f)
+        for ((k, v) in scene.faceVerts.withIndex()) {
+            val o = v * 3
+            val x = pos[o] + nor[o] * 0.025f; val y = pos[o + 1] + nor[o + 1] * 0.025f; val z = pos[o + 2] + nor[o + 2] * 0.025f
+            val ex = eye[0] - x; val ey = eye[1] - y; val ez = eye[2] - z
+            val el = kotlin.math.sqrt(ex * ex + ey * ey + ez * ez)
+            val facing = (nor[o] * ex + nor[o + 1] * ey + nor[o + 2] * ez) / el
+            val a = ((facing - 0.05f) / 0.3f).coerceIn(0f, 1f) * grow
+            if (a <= 0f) continue
+            when (k) {
+                0, 1 -> put(x, y, z, 1f, 1f, 1f, a, 0.17f, 12f, scene.blink, room)
+                2, 3 -> put(x, y, z, 1f, 0.45f, 0.6f, a, 0.24f, 13f, 0f, room)
+                else -> put(x, y, z, 1f, 1f, 1f, a, 0.15f, 14f, 0f, room)
+            }
+        }
+        flushSprites()
+        glDepthMask(true)
     }
 
     private fun drawParticles() {

@@ -197,7 +197,7 @@ void main() {
     vec3 amb = mix(uEnvBot, uEnvTop, n.y * 0.5 + 0.5);
     vec3 col = uColor.rgb * (0.45 * amb + 0.7 * diff * uRoom) + env(reflect(-v, n)) * fres * uGloss * 0.8 + vec3(spec) * uRoom;
     // Neon tray: a glowing rim.
-    col += uEmit * smoothstep(1.98, 2.12, length(vW.xz));
+    col += uEmit * smoothstep(0.1, 0.2, vW.y);
     gl_FragColor = vec4(col, uColor.a);
 }
 """
@@ -311,9 +311,23 @@ void main() {
         float ang = atan(rp.y, rp.x);
         d = r - (0.62 + 0.3 * abs(cos(ang * 2.5)));
         col = r < 0.26 ? vec3(1.0, 0.82, 0.25) : col * (0.8 + 0.3 * r);
-    } else {                       // crescent moon
+    } else if (vShape < 11.5) {    // crescent moon
         d = max(length(rp) - 0.85, -(length(rp - vec2(0.38, 0.22)) - 0.68));
         col = col * (0.85 + 0.3 * (1.0 - length(p)));
+    } else if (vShape < 12.5) {    // face: an eye, closing as vAngle goes to 1 (a blink, a happy squint)
+        float open = max(0.1, 1.0 - vAngle);
+        vec2 q = vec2(p.x, p.y / open);
+        d = (length(q) - 0.86) * open;
+        col = vec3(0.1, 0.06, 0.18) + vec3(1.0) * smoothstep(0.3, 0.2, length(q - vec2(-0.28, 0.32))) * step(0.4, open)
+            + vec3(0.9) * smoothstep(0.15, 0.08, length(q - vec2(0.26, -0.24))) * step(0.4, open);
+    } else if (vShape < 13.5) {    // face: a soft rosy cheek
+        vec2 q = p * vec2(1.0, 1.7);
+        d = length(q) / 1.7 - 0.5;
+        a = 0.6 * smoothstep(0.9, 0.2, length(q));
+    } else {                       // face: a little smile
+        float r = length(p - vec2(0.0, 0.5));
+        d = max(abs(r - 0.78) - 0.13, p.y - 0.12);
+        col = vec3(0.1, 0.06, 0.18);
     }
     float cover = clamp(0.5 - d / aa, 0.0, 1.0);
     if (cover * a * vCol.a < 0.01) discard;
@@ -394,18 +408,97 @@ uniform vec3 uGlow;
 uniform float uRoom;
 uniform float uTime;
 uniform vec2 uRes;
+// A painted world: uTex covers the screen (uScale, uOff in texture space); uFx is its weather (model.Fx), -1 none.
+uniform sampler2D uTex;
+uniform float uHasTex;
+uniform vec2 uScale;
+uniform vec2 uOff;
+uniform float uFx;
 float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-void main() {
-    vec2 uv = gl_FragCoord.xy / uRes;
-    vec3 c = mix(uBot, uTop, uv.y);
-    vec2 g = (uv - vec2(0.5, 0.5)) * vec2(uRes.x / uRes.y, 1.0);
-    c += uGlow * exp(-dot(g, g) * 5.0) * 0.28;
-    vec2 sp = gl_FragCoord.xy / 4.0;
+
+// One layer of drifting things in cells of [cell] pixels moving at [vel] px/s; returns coverage and a random value.
+vec2 field(vec2 px, float cell, vec2 vel, float density, float size, float sway, float shape) {
+    vec2 sp = (px - vel * uTime) / cell;
     vec2 id = floor(sp);
     float h = hash2(id);
-    if (h > 0.996) {
-        float tw = 0.5 + 0.5 * sin(uTime * (1.0 + h * 2.0) + h * 500.0);
-        c += vec3(0.7) * tw * smoothstep(0.5, 0.0, length(fract(sp) - 0.5)) * (1.2 - uRoom * 0.6);
+    if (h > density) return vec2(0.0);
+    float h2 = hash2(id + 17.3);
+    vec2 c = vec2(0.3 + 0.4 * h2, 0.3 + 0.4 * fract(h * 7.1));
+    c.x += sin(uTime * (0.6 + h2) + h * 40.0) * sway;
+    vec2 d = fract(sp) - c;
+    float a = 0.0;
+    if (shape < 0.5) {
+        // Soft round dot (snow, pollen).
+        a = smoothstep(size, size * 0.35, length(d));
+    } else if (shape < 1.5) {
+        // A petal: a turning ellipse.
+        float r = uTime * (0.8 + h2) + h * 30.0;
+        vec2 q = mat2(cos(r), -sin(r), sin(r), cos(r)) * d;
+        a = smoothstep(1.0, 0.6, length(q / vec2(size, size * 0.55)));
+    } else if (shape < 2.5) {
+        // A bubble: a ring with a shine.
+        float l = length(d);
+        a = smoothstep(size, size * 0.8, l) * (0.35 + 0.65 * smoothstep(size * 0.6, size * 0.95, l));
+        a += smoothstep(size * 0.3, 0.0, length(d - vec2(-size * 0.4, size * 0.4))) * 0.8;
+    } else {
+        // A twinkling four-point sparkle.
+        float tw = 0.5 + 0.5 * sin(uTime * (2.0 + h2 * 3.0) + h * 90.0);
+        vec2 ad = abs(d);
+        a = (smoothstep(size * 0.18, 0.0, ad.x) * smoothstep(size, 0.0, ad.y) + smoothstep(size * 0.18, 0.0, ad.y) * smoothstep(size, 0.0, ad.x)) * tw;
+        a += smoothstep(size * 0.35, 0.0, length(d)) * tw;
+    }
+    return vec2(clamp(a, 0.0, 1.0), h2);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / uRes;
+    vec2 px = gl_FragCoord.xy;
+    float u = uRes.y / 800.0;
+    vec3 c;
+    if (uHasTex > 0.5) {
+        vec2 t = (vec2(uv.x, 1.0 - uv.y) - 0.5) * uScale + 0.5 + uOff;
+        c = texture2D(uTex, t).rgb;
+    } else {
+        c = mix(uBot, uTop, uv.y);
+        vec2 g = (uv - vec2(0.5, 0.5)) * vec2(uRes.x / uRes.y, 1.0);
+        c += uGlow * exp(-dot(g, g) * 5.0) * 0.28;
+    }
+    if (uFx < -0.5) {
+    } else if (uFx < 0.5) {
+        // Twinkling stars.
+        vec2 sp = px / 4.0;
+        vec2 id = floor(sp);
+        float h = hash2(id);
+        if (h > 0.996) {
+            float tw = 0.5 + 0.5 * sin(uTime * (1.0 + h * 2.0) + h * 500.0);
+            c += vec3(0.7) * tw * smoothstep(0.5, 0.0, length(fract(sp) - 0.5)) * (1.2 - uRoom * 0.6);
+        }
+    } else if (uFx < 1.5) {
+        // Snow, near and far.
+        vec2 a = field(px, 46.0 * u, vec2(8.0, -38.0) * u, 0.5, 0.11, 0.15, 0.0);
+        vec2 b = field(px + 300.0, 80.0 * u, vec2(14.0, -70.0) * u, 0.4, 0.09, 0.12, 0.0);
+        c = mix(c, vec3(1.0), max(a.x * 0.7, b.x * 0.95));
+    } else if (uFx < 2.5) {
+        // Cherry petals.
+        vec2 a = field(px, 70.0 * u, vec2(30.0, -40.0) * u, 0.32, 0.16, 0.12, 1.0);
+        vec2 b = field(px + 500.0, 110.0 * u, vec2(46.0, -64.0) * u, 0.28, 0.12, 0.14, 1.0);
+        c = mix(c, mix(vec3(1.0, 0.72, 0.84), vec3(1.0, 0.86, 0.92), a.y), a.x * 0.85);
+        c = mix(c, mix(vec3(1.0, 0.62, 0.78), vec3(1.0, 0.9, 0.95), b.y), b.x * 0.95);
+    } else if (uFx < 3.5) {
+        // Bubbles rising.
+        vec2 a = field(px, 60.0 * u, vec2(0.0, 34.0) * u, 0.3, 0.16, 0.12, 2.0);
+        vec2 b = field(px + 200.0, 100.0 * u, vec2(0.0, 58.0) * u, 0.25, 0.14, 0.1, 2.0);
+        c = mix(c, vec3(0.85, 0.97, 1.0), max(a.x * 0.45, b.x * 0.6));
+    } else if (uFx < 4.5) {
+        // Sparkles.
+        vec2 a = field(px, 64.0 * u, vec2(0.0, 0.0), 0.22, 0.32, 0.0, 3.0);
+        vec2 b = field(px + 77.0, 38.0 * u, vec2(0.0, 0.0), 0.2, 0.26, 0.0, 3.0);
+        c += mix(vec3(1.0, 0.95, 0.75), vec3(0.95, 0.85, 1.0), a.y) * a.x * 0.8 + vec3(1.0) * b.x * 0.45;
+    } else {
+        // Pollen and fluff drifting in the breeze.
+        vec2 a = field(px, 56.0 * u, vec2(22.0, 6.0) * u, 0.28, 0.07, 0.14, 0.0);
+        vec2 b = field(px + 400.0, 90.0 * u, vec2(36.0, 10.0) * u, 0.2, 0.06, 0.14, 0.0);
+        c = mix(c, vec3(1.0, 0.97, 0.75), max(a.x, b.x) * 0.75);
     }
     c *= mix(0.22, 1.0, uRoom);
     gl_FragColor = vec4(c, 1.0);

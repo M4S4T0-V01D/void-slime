@@ -10,6 +10,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -44,6 +50,7 @@ import dev.m4s4t0.voidslime.model.Base
 import dev.m4s4t0.voidslime.model.COLORS
 import dev.m4s4t0.voidslime.model.Game
 import dev.m4s4t0.voidslime.model.Glitter
+import dev.m4s4t0.voidslime.model.Mold
 import dev.m4s4t0.voidslime.model.Names
 import dev.m4s4t0.voidslime.model.Orders
 import dev.m4s4t0.voidslime.model.Recipe
@@ -54,7 +61,9 @@ import dev.m4s4t0.voidui.PillButton
 import dev.m4s4t0.voidui.Void
 import dev.m4s4t0.voidui.VoidTopBar
 
-enum class LabStep(val title: String) { BASE("Base"), COLOR("Colour"), MIXINS("Mix-ins"), STIR("Activate"), NAME("Jar it") }
+enum class LabStep(val title: String, val icon: String) {
+    BASE("Base", "flask"), COLOR("Colour", "palette"), MIXINS("Mix-ins", "sparkles"), SHAPE("Shape", "mold_heart"), STIR("Stir", "spoon"), NAME("Jar it", "jar")
+}
 
 class LabState {
     var draft by mutableStateOf(blank())
@@ -84,7 +93,11 @@ fun LabScreen(state: AppState) {
     var buying by remember { mutableStateOf<String?>(null) }
     val pinned = Game.orders.firstOrNull { it.id == state.pinnedOrder }
 
-    LaunchedEffect(r.id) { val f = lab.stir; state.view.scene { setForm(f) } }
+    // Before stirring the slime is runny; the shape step shows it set, so you can see the mold you picked.
+    LaunchedEffect(r.id, lab.step) {
+        val f = if (lab.step == LabStep.SHAPE || lab.step == LabStep.NAME) 1f else lab.stir
+        state.view.scene { setForm(f) }
+    }
     LaunchedEffect(lab.stir >= 1f) {
         if (lab.stir >= 1f && lab.step == LabStep.STIR) {
             Audio.play(Snd.DONE, 0.9f)
@@ -100,41 +113,51 @@ fun LabScreen(state: AppState) {
         if (Game.isUnlocked(k)) use() else buying = k
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val top = maxHeight * 0.44f
-        Column(Modifier.fillMaxWidth()) {
-            VoidTopBar("Slime lab", { state.go(Screen.HOME) }, subtitle = if (lab.step == LabStep.STIR && lab.activated) "Stir in circles!" else "Step ${lab.step.ordinal + 1} of 5") {
-                CoinChip(Modifier.padding(end = 8.dp))
+    BoxWithConstraints(Modifier.fillMaxSize().safe()) {
+        val panel = labPanel(maxWidth.value).dp
+        Column(Modifier.padding(end = panel), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            GameBar("Slime lab", { state.go(Screen.HOME) }, icon = "flask", subtitle = if (lab.step == LabStep.STIR && lab.activated) "Stir in circles!" else "Step ${lab.step.ordinal + 1} of ${LabStep.entries.size}") {
+                CoinChip()
             }
             if (pinned != null) {
-                Text(
-                    "${pinned.emoji} ${pinned.customer}: ${pinned.line}", color = Void.text, fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(12.dp)).background(Void.panel.copy(alpha = 0.85f)).padding(8.dp),
-                )
+                Row(
+                    Modifier.padding(horizontal = 12.dp).widthIn(max = 360.dp).glass(RoundedCornerShape(18.dp), alpha = 0.88f).padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Pic("cust_" + pinned.face, 44.dp)
+                    Column {
+                        Text(pinned.customer, color = Void.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(pinned.line, color = Void.dim, fontSize = 12.sp, maxLines = 2)
+                    }
+                }
             }
         }
         Column(
-            Modifier.padding(top = top).fillMaxSize().background(Void.bg).navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.align(Alignment.CenterEnd).width(panel).fillMaxHeight().padding(8.dp)
+                .glass(RoundedCornerShape(26.dp), alpha = 0.9f).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 for (s in LabStep.entries) {
                     val on = s == lab.step
                     val done = s.ordinal < lab.step.ordinal
-                    Text(
-                        (if (done) "✓ " else "") + s.title, fontSize = 12.sp, color = if (on) Void.bg else if (done) Void.cyan else Void.dim,
-                        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) Void.cyan else Void.panelAlt).padding(horizontal = 9.dp, vertical = 5.dp),
-                    )
+                    Box(
+                        Modifier.size(if (on) 44.dp else 36.dp).clip(CircleShape)
+                            .background(if (on) Void.cyan.copy(alpha = 0.35f) else Void.panelAlt)
+                            .border(if (on) 2.dp else 1.dp, if (on) Void.cyan else if (done) Void.ok else Void.border, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Pic(if (done) "check" else s.icon, if (on) 32.dp else 24.dp, alpha = if (on || done) 1f else 0.6f) }
                 }
             }
+            Text(lab.step.title, color = Void.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (lab.step) {
                     LabStep.BASE -> {
                         Text("Pick a base. Each one feels different!", color = Void.dim, fontSize = 13.sp)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             for (b in Base.entries) {
-                                Choice(b.title, r.base == b, !Game.isUnlocked(key(b)), b.price, emoji = b.emoji) {
+                                Choice(b.title, r.base == b, !Game.isUnlocked(key(b)), b.price, icon = b.icon) {
                                     pick(key(b)) {
                                         lab.draft = r.copy(base = b)
                                         Audio.play(Snd.POUR, 0.6f)
@@ -142,7 +165,7 @@ fun LabScreen(state: AppState) {
                                 }
                             }
                         }
-                        Text("${r.base.emoji} ${r.base.title}: ${r.base.blurb}", color = Void.text, fontSize = 13.sp)
+                        Text("${r.base.title}: ${r.base.blurb}", color = Void.text, fontSize = 13.sp)
                     }
                     LabStep.COLOR -> {
                         Text("Drop in up to 3 colours. They swirl together as you play.", color = Void.dim, fontSize = 13.sp)
@@ -168,7 +191,7 @@ fun LabScreen(state: AppState) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             for (a in AddIn.entries) {
                                 val lvl = r.addIns[a]
-                                Choice(lvl?.let { ADD_IN_LEVELS[it].first } ?: a.title, lvl != null, !Game.isUnlocked(key(a)), a.price, emoji = a.emoji) {
+                                Choice(lvl?.let { ADD_IN_LEVELS[it].first } ?: a.title, lvl != null, !Game.isUnlocked(key(a)), a.price, icon = a.icon) {
                                     pick(key(a)) {
                                         val m = r.addIns.toMutableMap()
                                         when {
@@ -187,16 +210,42 @@ fun LabScreen(state: AppState) {
                             for (g in Glitter.entries) {
                                 Choice(
                                     g.title, r.glitter == g, !Game.isUnlocked(key(g)), g.price, size = 46.dp,
-                                    fill = if (g == Glitter.NONE || g.argb == 0L) null else argbColor(g.argb),
-                                    emoji = when (g) { Glitter.NONE -> "🚫"; Glitter.RAINBOW -> "🌈"; else -> "✨" },
+                                    icon = g.icon,
                                 ) { pick(key(g)) { lab.draft = r.copy(glitter = g) } }
                             }
+                        }
+                    }
+                    LabStep.SHAPE -> {
+                        Text("Pick a mold. Your slime sets in this shape once it's stirred.", color = Void.dim, fontSize = 13.sp)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            for (m in Mold.entries) {
+                                Choice(m.title, r.mold == m, !Game.isUnlocked(key(m)), m.price, icon = m.icon) {
+                                    pick(key(m)) {
+                                        lab.draft = r.copy(mold = m, face = if (m.animal && r.mold != m) true else r.face)
+                                        Audio.play(Snd.SQUISH, 0.7f)
+                                    }
+                                }
+                            }
+                        }
+                        Text(r.mold.blurb, color = Void.text, fontSize = 13.sp)
+                        Row(
+                            Modifier.fillMaxWidth().squishy { lab.draft = r.copy(face = !r.face) }
+                                .glass(RoundedCornerShape(18.dp), if (r.face) Void.cyan else Void.border, 0.6f).padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Pic("face", 40.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text("Cute face", color = Void.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Little eyes and rosy cheeks. It blinks!", color = Void.dim, fontSize = 12.sp)
+                            }
+                            Pic(if (r.face) "check" else "star_off", 28.dp)
                         }
                     }
                     LabStep.STIR -> {
                         if (!lab.activated) {
                             Text("Your glue is ready. Pour in the activator, then stir in big circles in the dish until it turns into slime!", color = Void.text, fontSize = 14.sp)
-                            PillButton("🧴 Pour activator", true, Modifier.fillMaxWidth()) {
+                            PillButton("Pour activator", true, Modifier.fillMaxWidth()) {
                                 lab.activated = true
                                 Audio.play(Snd.POUR, 0.8f)
                                 Haptics.buzz(Haptics.Kind.THUD, 0.5f)
@@ -217,18 +266,19 @@ fun LabScreen(state: AppState) {
                             )
                         }
                     }
-                    LabStep.NAME -> NameStep(state, pinned?.let { o -> "${o.emoji} Deliver to ${o.customer} (${Orders.stars(o, r)}★)" })
+                    LabStep.NAME -> NameStep(state, pinned?.let { o -> "Deliver to ${o.customer}" })
                 }
             }
             if (lab.step != LabStep.NAME) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (lab.step == LabStep.BASE) {
-                        PillButton("🎲 Surprise me", false) {
+                        Pic("dice", 40.dp, Modifier.squishy {
                             val m = Game.mysteryRecipe()
                             lab.draft = m.copy(id = r.id)
                             Audio.play(Snd.WHOOSH, 0.6f)
                             lab.step = LabStep.STIR
-                        }
+                        })
+                        Text("Surprise me", color = Void.dim, fontSize = 12.sp)
                     } else {
                         PillButton("Back", false) { lab.step = LabStep.entries[lab.step.ordinal - 1] }
                     }
@@ -247,7 +297,10 @@ private fun NameStep(state: AppState, deliver: String?) {
     val lab = state.lab
     val r = lab.draft
     if (lab.saved) {
-        Text("🏺 ${r.name} is on your shelf!", color = Void.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Pic("jar", 48.dp, Modifier.bob(3.dp))
+            Text("${r.name} is on your shelf!", color = Void.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton("Play with it", true) { Game.select(r.id); state.go(Screen.PLAY) }
             PillButton("Make another", false) { lab.startNew(); state.view.scene { setForm(0f) } }
@@ -260,14 +313,15 @@ private fun NameStep(state: AppState, deliver: String?) {
             r.name, { lab.draft = r.copy(name = it.take(28)) }, Modifier.weight(1f), singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Void.text, unfocusedTextColor = Void.text, focusedBorderColor = Void.cyan, unfocusedBorderColor = Void.border, cursorColor = Void.cyan),
         )
-        Text("🎲", fontSize = 28.sp, modifier = Modifier.squishy { lab.draft = r.copy(name = Names.suggest(r)) })
+        Pic("dice", 40.dp, Modifier.squishy { lab.draft = r.copy(name = Names.suggest(r)) })
     }
-    Text(
-        "${r.base.emoji} ${r.base.title} · " + r.colors.joinToString { colorOf(it).title } +
-            (if (r.addIns.isNotEmpty()) " · " + r.addIns.keys.joinToString { it.emoji } else "") +
-            (if (r.glitter != Glitter.NONE) " · ✨" else ""),
-        color = Void.dim, fontSize = 12.sp,
-    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Pic(r.base.icon, 28.dp)
+        for (a in r.addIns.keys) Pic(a.icon, 28.dp)
+        if (r.glitter != Glitter.NONE) Pic(r.glitter.icon, 28.dp)
+        Pic(r.mold.icon, 28.dp)
+        Text(r.colors.joinToString { colorOf(it).title }, color = Void.dim, fontSize = 12.sp, maxLines = 1)
+    }
     fun save(): Recipe {
         val done = r.copy(name = r.name.ifBlank { Names.suggest(r) }, created = System.currentTimeMillis())
         lab.draft = done
@@ -278,14 +332,15 @@ private fun NameStep(state: AppState, deliver: String?) {
         Audio.play(Snd.BELL, 0.8f)
         return done
     }
-    PillButton("🏺 Put it in a jar", true, Modifier.fillMaxWidth()) { save() }
+    PillButton("Put it in a jar", true, Modifier.fillMaxWidth()) { save() }
     if (deliver != null) {
         PillButton(deliver, false, Modifier.fillMaxWidth()) {
             val done = save()
             val id = state.pinnedOrder ?: return@PillButton
+            val face = Game.orders.firstOrNull { it.id == id }?.face ?: "mia"
             val (stars, pay) = Game.fulfil(id, done)
             state.pinnedOrder = null
-            state.toasts += Toast(System.nanoTime(), "⭐".repeat(stars), "Order delivered!", "+$pay 🪙")
+            state.toasts += Toast(System.nanoTime(), "cust_$face", "Order delivered!", "", coins = pay, stars = stars)
             Audio.play(Snd.COIN, 0.9f)
         }
     }
@@ -294,5 +349,4 @@ private fun NameStep(state: AppState, deliver: String?) {
         "Tip: the shop's customers pay coins for slimes that match their order.", color = Void.dim, fontSize = 12.sp,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, Void.border, RoundedCornerShape(12.dp)).padding(10.dp),
     )
-    Spacer(Modifier.statusBarsPadding().height(0.dp))
 }

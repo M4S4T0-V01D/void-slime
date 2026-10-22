@@ -44,12 +44,16 @@ object Game {
     val orders = mutableStateListOf<Order>()
     val quests = mutableStateListOf<Quest>()
     var tray by mutableStateOf(Tray.VOID)
+    var world by mutableStateOf(World.VOID)
+    var plate by mutableStateOf(Plate.ROUND)
     var giftReady by mutableStateOf(false)
         private set
 
     var sounds by mutableStateOf(true)
     var haptics by mutableStateOf(true)
     var volume by mutableStateOf(0.8f)
+    var music by mutableStateOf(true)
+    var musicVolume by mutableStateOf(0.6f)
 
     private val _events = MutableSharedFlow<GameEvent>(extraBufferCapacity = 16)
     val events = _events.asSharedFlow()
@@ -68,7 +72,11 @@ object Game {
         sounds = prefs.getBoolean("sounds", true)
         haptics = prefs.getBoolean("haptics", true)
         volume = prefs.getFloat("volume", 0.8f)
+        music = prefs.getBoolean("music", true)
+        musicVolume = prefs.getFloat("musicVolume", 0.6f)
         tray = Tray.of(prefs.getString("tray", null))
+        world = World.of(prefs.getString("world", null))
+        plate = Plate.of(prefs.getString("plate", null))
         runCatching { JSONObject(prefs.getString("stats", "{}")!!) }.getOrNull()?.let { j -> j.keys().forEach { stats[it] = j.getLong(it) } }
         unlocked.addAll(prefs.getStringSet("unlocked", emptySet())!!)
         earned.addAll(prefs.getStringSet("earned", emptySet())!!)
@@ -131,6 +139,7 @@ object Game {
         val colors = COLORS.filter { isUnlocked(key(it)) }.shuffled(rnd)
         val addIns = AddIn.entries.filter { isUnlocked(key(it)) }.shuffled(rnd)
         val glitters = Glitter.entries.filter { isUnlocked(key(it)) }
+        val molds = Mold.entries.filter { isUnlocked(key(it)) }
         val r = Recipe(
             id = Recipe.newId(rnd),
             name = "",
@@ -139,8 +148,9 @@ object Game {
             addIns = addIns.take(rnd.nextInt(3)).associateWith { rnd.nextInt(ADD_IN_LEVELS.size) },
             glitter = if (rnd.nextBoolean()) glitters[rnd.nextInt(glitters.size)] else Glitter.NONE,
             created = System.currentTimeMillis(),
+            mold = if (rnd.nextFloat() < 0.4f) molds[rnd.nextInt(molds.size)] else Mold.DOME,
         )
-        return r.copy(name = name ?: Names.suggest(r, rnd))
+        return r.copy(face = r.mold.animal || rnd.nextFloat() < 0.25f).copy(name = name ?: Names.suggest(r, rnd))
     }
 
     // ---- coins, XP, stats, stickers ----
@@ -231,12 +241,25 @@ object Game {
     }
 
     fun allKeys(): List<String> =
-        Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key)
+        Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key) +
+            World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key)
 
     fun chooseTray(t: Tray) {
         if (!isUnlocked(key(t))) return
         tray = t
         prefs.edit().putString("tray", t.id).apply()
+    }
+
+    fun chooseWorld(w: World) {
+        if (!isUnlocked(key(w))) return
+        world = w
+        prefs.edit().putString("world", w.id).apply()
+    }
+
+    fun choosePlate(p: Plate) {
+        if (!isUnlocked(key(p))) return
+        plate = p
+        prefs.edit().putString("plate", p.id).apply()
     }
 
     // ---- jars ----
@@ -295,7 +318,8 @@ object Game {
     }
 
     fun saveSettings() {
-        prefs.edit().putBoolean("sounds", sounds).putBoolean("haptics", haptics).putFloat("volume", volume).apply()
+        prefs.edit().putBoolean("sounds", sounds).putBoolean("haptics", haptics).putFloat("volume", volume)
+            .putBoolean("music", music).putFloat("musicVolume", musicVolume).apply()
     }
 
     fun saveAll() {
@@ -317,7 +341,7 @@ object Game {
     fun reset() {
         prefs.edit().clear().apply()
         stats.clear(); unlocked.clear(); earned.clear(); jars.clear(); orders.clear(); quests.clear()
-        coins = 60; xp = 0; currentId = null; tray = Tray.VOID
+        coins = 60; xp = 0; currentId = null; tray = Tray.VOID; world = World.VOID; plate = Plate.ROUND
         jars.addAll(STARTER_JARS)
         topUpOrders()
         visit()

@@ -99,13 +99,20 @@ object Meshes {
      * A profile of (radius, height) points spun round the y axis, [seg] times. Normals come from the profile's
      * slope, so a smooth profile shades smoothly.
      */
-    fun lathe(profile: List<Pair<Float, Float>>, seg: Int = 96): Mesh {
+    fun lathe(profile: List<Pair<Float, Float>>, seg: Int = 96, outline: (Float) -> Float = { 1f }): Mesh {
         val rows = profile.size
         val data = FloatArray((seg + 1) * rows * 6)
         var o = 0
         for (s in 0..seg) {
-            val a = s * 2.0 * Math.PI / seg
-            val ca = cos(a).toFloat(); val sa = sin(a).toFloat()
+            val a = (s * 2.0 * Math.PI / seg).toFloat()
+            // An outline other than a circle: radii scale by outline(a), normals turn to face out of it.
+            val sc = outline(a)
+            val e = 1e-3f
+            val px0 = outline(a - e) * cos(a - e); val pz0 = outline(a - e) * sin(a - e)
+            val px1 = outline(a + e) * cos(a + e); val pz1 = outline(a + e) * sin(a + e)
+            val hl = hypot(pz1 - pz0, px1 - px0).takeIf { it > 1e-9f } ?: 1f
+            val ca = cos(a); val sa = sin(a)
+            val na = (pz1 - pz0) / hl; val nb = -(px1 - px0) / hl
             for (k in 0 until rows) {
                 val (r, y) = profile[k]
                 val (r0, y0) = profile[maxOf(k - 1, 0)]
@@ -115,8 +122,8 @@ object Meshes {
                 val tr = r1 - r0; val ty = y1 - y0
                 val l = hypot(tr, ty).takeIf { it > 1e-6f } ?: 1f
                 val nr = -ty / l; val ny = tr / l
-                data[o++] = r * ca; data[o++] = y; data[o++] = r * sa
-                data[o++] = nr * ca; data[o++] = ny; data[o++] = nr * sa
+                data[o++] = r * sc * ca; data[o++] = y; data[o++] = r * sc * sa
+                data[o++] = nr * na; data[o++] = ny; data[o++] = nr * nb
             }
         }
         val idx = ShortArray(seg * (rows - 1) * 6)
@@ -133,11 +140,12 @@ object Meshes {
     }
 
     /** The dish: a flat floor at y = 0 curving up into a rounded rim. */
-    fun tray(): Mesh = lathe(
+    fun tray(outline: (Float) -> Float = { 1f }, seg: Int = 96): Mesh = lathe(
         listOf(
             0f to -0.003f, 1.0f to -0.003f, 1.88f to -0.003f, 1.96f to 0.02f, 2.03f to 0.09f, 2.07f to 0.17f,
             2.11f to 0.215f, 2.16f to 0.225f, 2.21f to 0.2f, 2.24f to 0.12f, 2.22f to 0.0f, 2.12f to -0.07f, 1.6f to -0.09f, 0f to -0.09f,
         ),
+        seg, outline,
     )
 
     /** A rolling pin along y (the renderer turns it on its side): handles, a long barrel with rounded ends. Top down. */

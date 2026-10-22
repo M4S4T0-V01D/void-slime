@@ -13,6 +13,14 @@ import dev.m4s4t0.voidslime.model.Shape
 import dev.m4s4t0.voidslime.model.Toy
 import dev.m4s4t0.voidslime.model.Tray
 import dev.m4s4t0.voidslime.model.Recipe
+import dev.m4s4t0.voidslime.model.Mold
+import dev.m4s4t0.voidslime.model.Plate
+import dev.m4s4t0.voidslime.model.STICKERS
+import dev.m4s4t0.voidslime.model.Shapes
+import dev.m4s4t0.voidslime.model.World
+import dev.m4s4t0.voidslime.model.iconOf
+import dev.m4s4t0.voidslime.audio.Song
+import dev.m4s4t0.voidslime.ui.Art
 import dev.m4s4t0.voidslime.model.key
 import dev.m4s4t0.voidslime.model.label
 import dev.m4s4t0.voidslime.model.priceOf
@@ -41,7 +49,7 @@ class ModelTest {
     }
 
     @Test fun perfectRecipeEarnsThreeStarsAndFullPay() {
-        val o = Order("o", "Mia", "👧", Base.JELLY, red, addIn, true, 50, "")
+        val o = Order("o", "Mia", "mia", Base.JELLY, red, addIn, true, 50, "")
         val r = Recipe("s", "x", Base.JELLY, listOf(red), mapOf(addIn to 0), Glitter.entries.last())
         assertEquals(1f, Orders.match(o, r), 1e-6f)
         assertEquals(3, Orders.stars(o, r))
@@ -49,7 +57,7 @@ class ModelTest {
     }
 
     @Test fun partialMatchesEarnFewerStars() {
-        val o = Order("o", "Mia", "👧", Base.JELLY, red, null, false, 50, "")
+        val o = Order("o", "Mia", "mia", Base.JELLY, red, null, false, 50, "")
         val second = Recipe("s", "x", Base.JELLY, listOf(other, red))
         assertEquals(0.85f, Orders.match(o, second), 1e-6f)
         assertEquals(2, Orders.stars(o, second))
@@ -84,7 +92,8 @@ class ModelTest {
     }
 
     @Test fun everyShopThingHasAPriceALabelAndAUniqueKey() {
-        val keys = Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key)
+        val keys = Base.entries.map(::key) + COLORS.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key) +
+            World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key)
         assertEquals(keys.size, keys.toSet().size)
         for (k in keys) assertTrue("$k has no label", label(k) != k)
         for (t in Toy.entries) assertTrue("${t.id} should cost something", priceOf(key(t)) > 0)
@@ -112,5 +121,78 @@ class ModelTest {
         assertEquals(30, Quests.progress(q, mapOf("pokes" to 1030L)))
         assertEquals(80, Quests.progress(q, mapOf("pokes" to 5000L)))
         assertEquals(q, Quest.fromJson(JSONObject(q.toJson().toString())))
+    }
+
+    @Test fun theDefaultsAreFreeAndEverythingElseCosts() {
+        assertEquals(0, priceOf(key(World.VOID)))
+        assertEquals(0, priceOf(key(Plate.ROUND)))
+        assertEquals(0, priceOf(key(Mold.DOME)))
+        for (w in World.entries.drop(1)) assertTrue(priceOf(key(w)) > 0)
+        for (p in Plate.entries.drop(1)) assertTrue(priceOf(key(p)) > 0)
+        for (m in Mold.entries.drop(1)) assertTrue(priceOf(key(m)) > 0)
+    }
+
+    @Test fun everyPictureTheGameAsksForExists() {
+        val keys = Base.entries.map(::key) + AddIn.entries.map(::key) + Glitter.entries.map(::key) + Tray.entries.map(::key) + Toy.entries.map(::key) +
+            World.entries.map(::key) + Plate.entries.map(::key) + Mold.entries.map(::key)
+        val names = keys.mapNotNull(::iconOf) + STICKERS.map { it.icon } + Quests.KINDS.map { it.icon } + World.entries.map { it.backdrop } +
+            listOf("Mia", "Leo", "Nobody").map { "cust_" + Orders.faceOf(it) }
+        for (n in names) assertTrue("missing art: $n", Art.ids.containsKey(n))
+        assertTrue(COLORS.all { iconOf(key(it)) == null })
+    }
+
+    @Test fun everyWorldHasASong() {
+        for (w in World.entries) Song.valueOf(w.name)
+    }
+
+    @Test fun oldSavedOrdersStillLoad() {
+        val j = JSONObject("""{"id":"o1","customer":"Leo","emoji":"x","glitter":true,"reward":30,"line":"Hi"}""")
+        val o = Order.fromJson(j)
+        assertEquals(Orders.faceOf("Leo"), o.face)
+        assertEquals(o, Order.fromJson(JSONObject(o.toJson().toString())))
+    }
+
+    @Test fun moldAndFaceRoundTrip() {
+        val r = Recipe("s1", "Bun", Base.JELLY, listOf(red), mold = Mold.BUNNY, face = true)
+        assertEquals(r, Recipe.fromJson(JSONObject(r.toJson().toString())))
+        assertEquals(Mold.DOME, Recipe.fromJson(JSONObject("""{"id":"x","base":"jelly","colors":[]}""")).mold)
+    }
+
+    @Test fun dishOutlinesStayDishSized() {
+        for (p in Plate.entries) {
+            val rs = (0 until 360).map { Shapes.plateR(p, it / 360f * 6.2832f) }
+            assertTrue("$p too small: ${rs.min()}", rs.min() > 0.5f)
+            assertTrue("$p too big: ${rs.max()}", rs.max() < 1.3f)
+            assertTrue(Shapes.plateMin(p) <= rs.min() + 1e-4f)
+        }
+        for (a in 0 until 36) assertEquals(1f, Shapes.plateR(Plate.ROUND, a * 0.17f), 1e-6f)
+    }
+
+    @Test fun anUnformedMoldIsJustTheDome() {
+        val out = FloatArray(3)
+        val dome = FloatArray(3)
+        for (m in Mold.entries) for ((x, y, z) in listOf(Triple(0.6f, 0.8f, 0f), Triple(0f, 0.6f, -0.8f), Triple(0.8f, -0.6f, 0f))) {
+            Shapes.mold(m, x, y, z, 1.2f, 0.7f, 0.1f, 0f, out)
+            Shapes.mold(Mold.DOME, x, y, z, 1.2f, 0.7f, 0.1f, 0f, dome)
+            for (i in 0..2) assertEquals("$m", dome[i], out[i], 1e-5f)
+        }
+    }
+
+    @Test fun theHeartPointsAtTheCamera() {
+        val front = Shapes.moldR(Mold.HEART, Math.PI.toFloat() / 2f - Shapes.FRONT_YAW)
+        val back = Shapes.moldR(Mold.HEART, -Math.PI.toFloat() / 2f - Shapes.FRONT_YAW)
+        assertTrue("front $front back $back", front > back)
+        // Bunny ears stick up well above a dome.
+        fun top(m: Mold): Float {
+            val out = FloatArray(3)
+            var best = 0f
+            for (i in 0..40) for (j in 0..80) {
+                val th = i / 40f * 1.5708f; val ph = j / 80f * 6.2832f
+                Shapes.mold(m, kotlin.math.cos(th) * kotlin.math.cos(ph), kotlin.math.sin(th), kotlin.math.cos(th) * kotlin.math.sin(ph), 1f, 1f, 0.1f, 1f, out)
+                best = maxOf(best, out[1])
+            }
+            return best
+        }
+        assertTrue(top(Mold.BUNNY) > top(Mold.DOME) * 1.3f)
     }
 }

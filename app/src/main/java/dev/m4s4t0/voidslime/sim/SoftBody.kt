@@ -1,7 +1,12 @@
 package dev.m4s4t0.voidslime.sim
 
 import dev.m4s4t0.voidslime.model.Material
+import dev.m4s4t0.voidslime.model.Mold
+import dev.m4s4t0.voidslime.model.Plate
+import dev.m4s4t0.voidslime.model.Shapes
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -56,12 +61,6 @@ class SoftBody(subdiv: Int = 4) {
     val colliders = ArrayList<Collider>()
     val grabs = ArrayList<Grab>()
 
-    init {
-        setMaterial(LIQUID, 1f)
-        shapeNatural()
-        reset()
-    }
-
     /** The finished slime's material, and how far it's formed. */
     fun setMaterial(m: Material, form: Float) {
         solid = m
@@ -94,19 +93,36 @@ class SoftBody(subdiv: Int = 4) {
         for (i in 0 until n) vel[i * 3 + 1] += 0.6f
     }
 
+    /** The shape it settles into once formed (a dome, a heart, a bunny...). */
+    var mold = Mold.DOME
+        set(v) { if (v != field) { field = v; shapeNatural() } }
+
+    /** The dish outline the wall follows. */
+    var plate = Plate.ROUND
+        set(v) {
+            field = v
+            wallMin = DISH_R * Shapes.plateMin(v)
+            for (k in 0 until WALL_STEPS) wall[k] = DISH_R * Shapes.plateR(v, k * 2f * PI.toFloat() / WALL_STEPS)
+        }
+    private val wall = FloatArray(WALL_STEPS) { DISH_R }
+    private var wallMin = DISH_R
+
+    init {
+        setMaterial(LIQUID, 1f)
+        shapeNatural()
+        reset()
+    }
+
     private fun shapeNatural() {
-        // Dome: wide and low, nearly flat underneath. Puddle: a thin spread of glue.
+        // Dome: wide and low, nearly flat underneath. Puddle: a thin spread of glue. Molds reshape the formed slime.
         val f = smooth(form)
         val radius = lerp(1.5f, 1.05f, f)
         val height = lerp(0.16f, 0.62f, f)
         val under = lerp(0.04f, 0.1f, f)
+        val p = FloatArray(3)
         for (i in 0 until n) {
-            val x = sphere.verts[i * 3]; val y = sphere.verts[i * 3 + 1]; val z = sphere.verts[i * 3 + 2]
-            // A little wider at the base, as a heavy blob slumps.
-            val slump = 1f + 0.12f * (1f - y) * 0.5f * f
-            nat[i * 3] = x * radius * slump
-            nat[i * 3 + 1] = if (y >= 0f) y * height else y * under
-            nat[i * 3 + 2] = z * radius * slump
+            Shapes.mold(mold, sphere.verts[i * 3], sphere.verts[i * 3 + 1], sphere.verts[i * 3 + 2], radius, height, under, f, p)
+            nat[i * 3] = p[0]; nat[i * 3 + 1] = p[1]; nat[i * 3 + 2] = p[2]
         }
         // Relative to its centre of mass.
         var mx = 0f; var my = 0f; var mz = 0f
@@ -114,6 +130,16 @@ class SoftBody(subdiv: Int = 4) {
         mx /= n; my /= n; mz /= n
         for (i in 0 until n) { nat[i * 3] -= mx; nat[i * 3 + 1] -= my; nat[i * 3 + 2] -= mz }
         volume0 = volumeOf(nat)
+    }
+
+    /** The dish wall's radius in the direction of ([x], [z]). */
+    fun wallAt(x: Float, z: Float): Float {
+        if (plate == Plate.ROUND) return DISH_R
+        val a = atan2(z, x)
+        val t = ((a / (2f * PI.toFloat()) + 1f) % 1f) * WALL_STEPS
+        val k = t.toInt() % WALL_STEPS
+        val fr = t - t.toInt()
+        return wall[k] + (wall[(k + 1) % WALL_STEPS] - wall[k]) * fr
     }
 
     private fun minY(a: FloatArray): Float {
@@ -208,10 +234,12 @@ class SoftBody(subdiv: Int = 4) {
                 vel[o] *= grip; vel[o + 2] *= grip
             }
             val r2 = pos[o] * pos[o] + pos[o + 2] * pos[o + 2]
-            if (r2 > DISH_R * DISH_R) {
+            if (r2 > wallMin * wallMin) {
                 val r = sqrt(r2)
+                val wr = wallAt(pos[o], pos[o + 2])
+                if (r <= wr) continue
                 val nx = pos[o] / r; val nz = pos[o + 2] / r
-                pos[o] = nx * DISH_R; pos[o + 2] = nz * DISH_R
+                pos[o] = nx * wr; pos[o + 2] = nz * wr
                 val vr = vel[o] * nx + vel[o + 2] * nz
                 if (vr > 0f) { vel[o] -= vr * nx; vel[o + 2] -= vr * nz }
             }
@@ -405,6 +433,7 @@ class SoftBody(subdiv: Int = 4) {
 
     companion object {
         const val DISH_R = 1.85f
+        private const val WALL_STEPS = 720
         const val YIELD = 0.07f
         const val GRAB_K = 700f
         const val GRAB_C = 26f

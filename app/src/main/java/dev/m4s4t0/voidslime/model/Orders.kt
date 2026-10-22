@@ -10,7 +10,8 @@ import kotlin.random.Random
 data class Order(
     val id: String,
     val customer: String,
-    val emoji: String,
+    /** The customer's portrait (art "cust_<face>"). */
+    val face: String,
     val base: Base?,
     val color: String?,
     val addIn: AddIn?,
@@ -21,7 +22,7 @@ data class Order(
     val wishes get() = listOfNotNull(base, color, addIn).size + (if (glitter) 1 else 0)
 
     fun toJson(): JSONObject = JSONObject().apply {
-        put("id", id); put("customer", customer); put("emoji", emoji)
+        put("id", id); put("customer", customer); put("face", face)
         base?.let { put("base", it.id) }
         color?.let { put("color", it) }
         addIn?.let { put("addIn", it.id) }
@@ -32,7 +33,7 @@ data class Order(
         fun fromJson(j: JSONObject) = Order(
             id = j.getString("id"),
             customer = j.optString("customer", "Customer"),
-            emoji = j.optString("emoji", "🙂"),
+            face = j.optString("face").ifEmpty { Orders.faceOf(j.optString("customer")) },
             base = if (j.has("base")) Base.of(j.getString("base")) else null,
             color = j.optString("color").takeIf { id -> id.isNotEmpty() && COLORS.any { it.id == id } },
             addIn = AddIn.of(j.optString("addIn")),
@@ -45,14 +46,17 @@ data class Order(
 
 object Orders {
     private val customers = listOf(
-        "Mia" to "👧", "Leo" to "👦", "Grandma Rose" to "👵", "Captain Zed" to "👨‍🚀", "Pixel" to "🤖", "Nova" to "🧚",
-        "Mr. Whiskers" to "🐱", "Bubbles" to "🐙", "Professor Goo" to "🧑‍🔬", "Luna" to "🦄", "Bao" to "🐼", "Ziggy" to "👽",
-        "Coach Kim" to "🏋️", "Dr. Fizz" to "🧪", "Penny" to "🐧", "Rex" to "🦖",
+        "Mia" to "mia", "Leo" to "leo", "Grandma Rose" to "rose", "Captain Zed" to "zed", "Pixel" to "pixel", "Nova" to "nova",
+        "Mr. Whiskers" to "whiskers", "Bubbles" to "bubbles", "Professor Goo" to "goo", "Luna" to "luna", "Bao" to "bao", "Ziggy" to "ziggy",
+        "Coach Kim" to "kim", "Dr. Fizz" to "fizz", "Penny" to "penny", "Rex" to "rex",
     )
+
+    /** A customer's portrait id from their name (orders saved before portraits only had a name). */
+    fun faceOf(name: String) = customers.firstOrNull { it.first == name }?.second ?: "mia"
     private val greetings = listOf("Hi! Could I get", "Ooh, I'd love", "Hello! I'd like", "Please make me", "My kid wants", "I need", "Surprise me with", "Can you whip up")
 
     fun generate(rnd: Random, unlocked: (String) -> Boolean, level: Int): Order {
-        val (who, emoji) = customers[rnd.nextInt(customers.size)]
+        val (who, face) = customers[rnd.nextInt(customers.size)]
         val bases = Base.entries.filter { unlocked(key(it)) }
         val colors = COLORS.filter { unlocked(key(it)) }
         val addIns = AddIn.entries.filter { unlocked(key(it)) }
@@ -75,7 +79,7 @@ object Orders {
         val what = parts.joinToString(" ")
         val article = if (what.first().lowercaseChar() in "aeiou") "an" else "a"
         val line = "${greetings[rnd.nextInt(greetings.size)]} $article $what!"
-        return Order("o" + rnd.nextLong().toULong().toString(36), who, emoji, base, color, addIn, glitter, reward, line)
+        return Order("o" + rnd.nextLong().toULong().toString(36), who, face, base, color, addIn, glitter, reward, line)
     }
 
     /** How well [r] matches: the share of wishes met (0..1). The first colour counts most, but any of them will do. */
@@ -113,6 +117,9 @@ fun key(a: AddIn) = "addin:${a.id}"
 fun key(g: Glitter) = "glitter:${g.id}"
 fun key(t: Tray) = "tray:${t.id}"
 fun key(t: Toy) = "toy:${t.id}"
+fun key(w: World) = "world:${w.id}"
+fun key(p: Plate) = "plate:${p.id}"
+fun key(m: Mold) = "mold:${m.id}"
 
 fun priceOf(k: String): Int {
     val (kind, id) = k.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
@@ -123,6 +130,9 @@ fun priceOf(k: String): Int {
         "glitter" -> Glitter.entries.firstOrNull { it.id == id }?.price
         "tray" -> Tray.entries.firstOrNull { it.id == id }?.price
         "toy" -> Toy.entries.firstOrNull { it.id == id }?.price
+        "world" -> World.entries.firstOrNull { it.id == id }?.price
+        "plate" -> Plate.entries.firstOrNull { it.id == id }?.price
+        "mold" -> Mold.entries.firstOrNull { it.id == id }?.price
         else -> null
     } ?: 0
 }
@@ -131,12 +141,31 @@ fun priceOf(k: String): Int {
 fun label(k: String): String {
     val (kind, id) = k.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
     return when (kind) {
-        "base" -> Base.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title} base" }
-        "color" -> COLORS.firstOrNull { it.id == id }?.let { "🎨 ${it.title}" }
-        "addin" -> AddIn.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title}" }
-        "glitter" -> Glitter.entries.firstOrNull { it.id == id }?.let { "✨ ${it.title} glitter" }
-        "tray" -> Tray.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title} dish" }
-        "toy" -> Toy.entries.firstOrNull { it.id == id }?.let { "${it.emoji} ${it.title}" }
+        "base" -> Base.entries.firstOrNull { it.id == id }?.let { "${it.title} base" }
+        "color" -> COLORS.firstOrNull { it.id == id }?.title
+        "addin" -> AddIn.entries.firstOrNull { it.id == id }?.title
+        "glitter" -> Glitter.entries.firstOrNull { it.id == id }?.let { "${it.title} glitter" }
+        "tray" -> Tray.entries.firstOrNull { it.id == id }?.let { "${it.title} dish" }
+        "toy" -> Toy.entries.firstOrNull { it.id == id }?.title
+        "world" -> World.entries.firstOrNull { it.id == id }?.title
+        "plate" -> Plate.entries.firstOrNull { it.id == id }?.let { "${it.title} dish shape" }
+        "mold" -> Mold.entries.firstOrNull { it.id == id }?.let { "${it.title} mold" }
         else -> null
     } ?: k
+}
+
+/** The art for a key (colours have none: they're drawn as a swatch). */
+fun iconOf(k: String): String? {
+    val (kind, id) = k.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+    return when (kind) {
+        "base" -> "base_$id"
+        "addin" -> "addin_$id"
+        "glitter" -> "glitter_$id"
+        "tray" -> "tray_$id"
+        "toy" -> "tool_$id"
+        "world" -> "world_$id"
+        "plate" -> "plate_$id"
+        "mold" -> "mold_$id"
+        else -> null
+    }
 }

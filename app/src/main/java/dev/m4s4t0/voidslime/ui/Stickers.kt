@@ -32,10 +32,10 @@ import dev.m4s4t0.voidui.VoidTopBar
 
 @Composable
 fun StickersScreen(state: AppState) {
-    Column(Modifier.fillMaxSize()) {
-        VoidTopBar("Stickers", { state.go(Screen.HOME) }, subtitle = "${Game.earned.size} of ${STICKERS.size} collected") { CoinChip(Modifier.padding(end = 8.dp)) }
+    Column(Modifier.fillMaxSize().safe()) {
+        GameBar("Stickers", { state.go(Screen.HOME) }, icon = "stickers", subtitle = "${Game.earned.size} of ${STICKERS.size} collected") { CoinChip() }
         LazyVerticalGrid(
-            GridCells.Adaptive(150.dp), Modifier.fillMaxSize().navigationBarsPadding(),
+            GridCells.Adaptive(150.dp), Modifier.fillMaxSize(),
             contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(STICKERS, key = { it.id }) { s ->
@@ -47,10 +47,10 @@ fun StickersScreen(state: AppState) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(s.emoji, fontSize = 38.sp, modifier = Modifier.alpha(if (got) 1f else 0.3f))
+                    Pic(s.icon, 64.dp, if (got) Modifier.bob(2.dp, s.id.hashCode() and 7) else Modifier, alpha = if (got) 1f else 0.28f)
                     Text(s.title, color = Void.text, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     Text(s.desc, color = Void.dim, fontSize = 11.sp, textAlign = TextAlign.Center)
-                    if (got) Text("✓ +${s.reward} 🪙", color = Void.warn, fontSize = 12.sp)
+                    if (got) Coins("+${s.reward}", fontSize = 12.sp, icon = 15.dp)
                     else {
                         LinearProgressIndicator(
                             progress = { have / s.goal.toFloat() }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),

@@ -11,6 +11,7 @@ import dev.m4s4t0.voidslime.model.AddIn
 import dev.m4s4t0.voidslime.model.Glitter
 import dev.m4s4t0.voidslime.model.Recipe
 import dev.m4s4t0.voidslime.model.STARTER_JARS
+import dev.m4s4t0.voidslime.model.Shapes
 import dev.m4s4t0.voidslime.model.Stat
 import dev.m4s4t0.voidslime.model.colorOf
 import dev.m4s4t0.voidslime.sim.Collider
@@ -90,6 +91,24 @@ class Scene(private val listener: SceneListener) {
     private val rd = FloatArray(3)
     private val tmp = FloatArray(6)
     private val ext = FloatArray(2)
+    val cameraYaw get() = yaw
+    val cameraPitch get() = pitch
+
+    /**
+     * The part of the screen the dish should sit in (left, top, right, bottom as fractions), so it's centred in the
+     * space the menus leave free. Eases over when it changes.
+     */
+    var focus = floatArrayOf(0f, 0f, 1f, 1f)
+    private val focusNow = floatArrayOf(0f, 0f, 1f, 1f)
+
+    /** Skin points the face is drawn on: eyes, cheeks, mouth (see [Shapes.faceSpot]). */
+    val faceVerts = FACE.map { (dx, dy) ->
+        val f = Shapes.faceSpot(dx, dy)
+        (0 until body.n).maxBy { body.pattern[it * 3] * f[0] + body.pattern[it * 3 + 1] * f[1] + body.pattern[it * 3 + 2] * f[2] }
+    }
+    /** How closed the eyes are (0 open, 1 shut): blinks now and then, squints happily when squished. */
+    var blink = 0f; private set
+    private var nextBlink = 3f
 
     init {
         body.colliders += palm
@@ -116,7 +135,11 @@ class Scene(private val listener: SceneListener) {
             buildItems(false)
             return
         }
-        if (old.base != r.base) applyMaterial()
+        if (old.base != r.base || old.mold != r.mold) applyMaterial()
+        if (old.mold != r.mold) {
+            Audio.play(Snd.SQUISH, 0.7f, 0.8f)
+            body.impulse(0f, 1.6f, 0f)
+        }
         if (old.colors != r.colors && r.colors.size >= old.colors.size) {
             Audio.play(Snd.PLIP, 0.8f, 0.9f + rnd.nextFloat() * 0.3f)
             mix = max(0f, mix - 0.35f)
@@ -144,7 +167,10 @@ class Scene(private val listener: SceneListener) {
         applyMaterial()
     }
 
-    private fun applyMaterial() = body.setMaterial(recipe.base.mat, form)
+    private fun applyMaterial() {
+        body.mold = recipe.mold
+        body.setMaterial(recipe.base.mat, form)
+    }
 
     fun ballUp() {
         body.ballUp()
@@ -857,18 +883,30 @@ class Scene(private val listener: SceneListener) {
         updateItems(dt)
         updateBubbles(dt)
         updateParticles(dt)
+        nextBlink -= dt
+        if (nextBlink < 0f) nextBlink = 2.5f + rnd.nextFloat() * 3.5f
+        val squint = if (working) min(1f, body.agitation * 1.5f) else 0f
+        val shut = if (nextBlink < 0.14f) 1f else squint
+        blink += (shut - blink) * min(1f, dt * 30f)
+        for (k in 0 until 4) focusNow[k] += (focus[k] - focusNow[k]) * min(1f, dt * 6f)
         camera()
     }
 
     private fun camera() {
         val aspect = width / height.toFloat()
         val t = tan(Math.toRadians(22.5)).toFloat()
-        val dist = (max(2.5f / (t * aspect), 1.9f / t) * zoom).coerceIn(4f, 18f)
+        // Fit the dish in the focus area, then shift the lens so it's centred there.
+        val fw = (focusNow[2] - focusNow[0]).coerceIn(0.2f, 1f)
+        val fh = (focusNow[3] - focusNow[1]).coerceIn(0.2f, 1f)
+        val dish = Shapes.plateMax(body.plate)
+        val dist = (max(3.0f * dish / (t * aspect * fw), 2.5f * dish / (t * fh)) * zoom).coerceIn(4f, 24f)
         val ty = 0.3f
         eye[0] = dist * cos(pitch) * sin(yaw); eye[1] = ty + dist * sin(pitch); eye[2] = dist * cos(pitch) * cos(yaw)
         val l = sqrt(sq(eye[0]) + sq(eye[1] - ty) + sq(eye[2]))
         fwd[0] = -eye[0] / l; fwd[1] = -(eye[1] - ty) / l; fwd[2] = -eye[2] / l
         Matrix.perspectiveM(proj, 0, 45f, aspect, 0.5f, 80f)
+        proj[8] = -(focusNow[0] + focusNow[2] - 1f)
+        proj[9] = -(1f - focusNow[1] - focusNow[3])
         Matrix.setLookAtM(view, 0, eye[0], eye[1], eye[2], 0f, ty, 0f, 0f, 1f, 0f)
         Matrix.multiplyMM(vp, 0, proj, 0, view, 0)
         Matrix.invertM(inv, 0, vp, 0)
@@ -919,6 +957,9 @@ class Scene(private val listener: SceneListener) {
         val LIGHT = floatArrayOf(-0.45f, 0.85f, 0.5f).let { v -> val l = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); floatArrayOf(v[0] / l, v[1] / l, v[2] / l) }
 
         private fun sq(x: Float) = x * x
+
+        /** Face spots on the front of the unit sphere: two eyes, two cheeks, the mouth. */
+        val FACE = listOf(-0.27f to 0.5f, 0.27f to 0.5f, -0.5f to 0.3f, 0.5f to 0.3f, 0f to 0.36f)
 
         fun rgb(argb: Long) = floatArrayOf(((argb shr 16) and 0xFF) / 255f, ((argb shr 8) and 0xFF) / 255f, (argb and 0xFF) / 255f)
 

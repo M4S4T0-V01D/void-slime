@@ -14,7 +14,7 @@ import javax.microedition.khronos.egl.EGLConfig
 @SuppressLint("ViewConstructor")
 class SlimeView(ctx: Context, listener: SceneListener) : GLSurfaceView(ctx) {
     private val scene = Scene(listener)
-    val renderer = SlimeRenderer(scene)
+    val renderer = SlimeRenderer(scene, ctx.resources)
 
     init {
         setEGLContextClientVersion(2)

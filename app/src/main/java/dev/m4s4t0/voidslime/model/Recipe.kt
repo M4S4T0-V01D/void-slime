@@ -17,6 +17,9 @@ data class Recipe(
     val created: Long = 0,
     /** Times it's been played with (sorting the shelf by favourites). */
     val plays: Int = 0,
+    val mold: Mold = Mold.DOME,
+    /** A cute face on the front (animal molds start with one). */
+    val face: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -27,6 +30,8 @@ data class Recipe(
         put("glitter", glitter.id)
         put("created", created)
         put("plays", plays)
+        put("mold", mold.id)
+        put("face", face)
     }
 
     val crunchy get() = base.mat.crunchy || addIns.keys.any { it.crunchy }
@@ -48,6 +53,8 @@ data class Recipe(
                 glitter = Glitter.of(j.optString("glitter")),
                 created = j.optLong("created"),
                 plays = j.optInt("plays"),
+                mold = Mold.of(j.optString("mold")),
+                face = j.optBoolean("face"),
             )
         }
 

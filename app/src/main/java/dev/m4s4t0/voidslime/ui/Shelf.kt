@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
@@ -59,13 +60,13 @@ fun ShelfScreen(state: AppState) {
         2 -> Game.jars.sortedBy { it.name.lowercase() }
         else -> Game.jars.toList()
     }
-    Column(Modifier.fillMaxSize()) {
-        VoidTopBar("Shelf", { state.go(Screen.HOME) }, subtitle = "${plural(Game.jars.size, "slime")} in jars") { CoinChip(Modifier.padding(end = 8.dp)) }
-        Column(Modifier.padding(horizontal = 14.dp)) {
-            Pills(listOf(0 to "Newest", 1 to "Favourites", 2 to "A–Z"), sort) { tapFeedback(); sort = it }
+    Column(Modifier.fillMaxSize().safe()) {
+        GameBar("Shelf", { state.go(Screen.HOME) }, icon = "shelf", subtitle = "${plural(Game.jars.size, "slime")} in jars") {
+            Pills(listOf(0 to "Newest", 1 to "Favourites", 2 to "A-Z"), sort) { tapFeedback(); sort = it }
+            CoinChip()
         }
         LazyVerticalGrid(
-            GridCells.Adaptive(104.dp), Modifier.fillMaxSize().navigationBarsPadding(),
+            GridCells.Adaptive(112.dp), Modifier.fillMaxSize(),
             contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(jars, key = { it.id }) { r ->
@@ -78,7 +79,10 @@ fun ShelfScreen(state: AppState) {
                 ) {
                     JarPreview(r, Modifier.fillMaxWidth().height(108.dp))
                     Text(r.name, color = Void.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${r.base.emoji} ${r.base.title}", color = Void.dim, fontSize = 11.sp, maxLines = 1)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Pic(r.base.icon, 18.dp)
+                        Text(r.base.title, color = Void.dim, fontSize = 11.sp, maxLines = 1)
+                    }
                 }
             }
         }
@@ -90,16 +94,21 @@ fun ShelfScreen(state: AppState) {
             title = { Text(r.name, color = Void.text, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    JarPreview(r, Modifier.fillMaxWidth().height(150.dp))
-                    Text("${r.base.emoji} ${r.base.title} · ${r.colors.joinToString { colorOf(it).title }}", color = Void.dim, fontSize = 13.sp)
-                    if (r.addIns.isNotEmpty()) Text(r.addIns.keys.joinToString { "${it.emoji} ${it.title}" }, color = Void.dim, fontSize = 13.sp)
+                    JarPreview(r, Modifier.fillMaxWidth().height(110.dp))
+                    Text("${r.base.title} · ${r.mold.title} · ${r.colors.joinToString { colorOf(it).title }}", color = Void.dim, fontSize = 13.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Pic(r.base.icon, 30.dp)
+                        Pic(r.mold.icon, 30.dp)
+                        for (a in r.addIns.keys) Pic(a.icon, 30.dp)
+                        if (r.glitter != Glitter.NONE) Pic(r.glitter.icon, 30.dp)
+                    }
                     Text("Played ${r.plays} times", color = Void.dim, fontSize = 12.sp)
                 }
             },
             confirmButton = { PillButton("Play", true) { Game.select(r.id); open = null; state.go(Screen.PLAY) } },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PillButton("🗑️", false) { Game.deleteJar(r.id); open = null }
+                    Pic("trash", 36.dp, Modifier.squishy { Game.deleteJar(r.id); open = null })
                     PillButton("Close", false) { open = null }
                 }
             },

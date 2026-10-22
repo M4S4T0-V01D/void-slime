@@ -6,6 +6,8 @@ import android.media.AudioTrack
 import dev.m4s4t0.voidslime.model.Game
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -35,6 +37,29 @@ object Audio {
     private var padGain = 0f
     private var padChord = 0
     private var padClock = 0
+
+    /** The tune to play (null for quiet). Rendered on its own thread the first time, then crossfaded in. */
+    @Volatile var song: Song? = null
+        set(v) { field = v; v?.let(::prepare) }
+    private val loops = java.util.concurrent.ConcurrentHashMap<Song, ShortArray>()
+    private val rendering = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<Song, Boolean>())
+    private var playing: Song? = null
+    private var playPos = 0f
+    private var playGain = 0f
+    private var fading: Song? = null
+    private var fadePos = 0f
+    private var fadeGain = 0f
+
+    private fun prepare(s: Song) {
+        if (loops.containsKey(s) || !rendering.add(s)) return
+        Thread({
+            val data = Music.render(s)
+            // Keep a couple of loops in memory: the one playing and the one being faded to.
+            if (loops.size >= 3) loops.keys.filter { it != song && it != playing }.forEach { loops.remove(it) }
+            loops[s] = data
+            rendering.remove(s)
+        }, "VoidSlimeMusic").apply { priority = Thread.NORM_PRIORITY - 1; start() }
+    }
 
     fun start() {
         if (running) return
@@ -105,6 +130,7 @@ object Audio {
                     v.pos = p
                 }
                 mixPad(out)
+                mixMusic(out)
                 // Gentle limiter.
                 for (i in out.indices) {
                     val x = out[i]
@@ -124,6 +150,48 @@ object Audio {
         floatArrayOf(174.61f, 220.0f, 261.63f, 329.63f),
         floatArrayOf(196.0f, 246.94f, 293.66f, 392.0f),
     )
+
+    private fun mixMusic(out: FloatArray) {
+        val want = song?.takeIf { Game.music && loops.containsKey(it) }
+        if (want != playing) {
+            // The old tune fades out while the new one comes in from the top.
+            if (playing != null && playGain > 0.01f) { fading = playing; fadePos = playPos; fadeGain = playGain }
+            playing = want; playPos = 0f; playGain = 0f
+        }
+        val rate = 1f / (SoundBank.SR * 1.5f)
+        fading?.let { f ->
+            val d = loops[f]
+            val dg = -min(rate * 1.5f, fadeGain / BLOCK)
+            if (d == null || fadeGain <= 1e-4f) fading = null
+            else { fadePos = mixLoop(out, d, fadePos, fadeGain, dg); fadeGain += dg * BLOCK }
+        }
+        val p = playing ?: return
+        val d = loops[p] ?: return
+        val target = 0.32f * Game.musicVolume
+        val dg = if (playGain < target) min(rate, (target - playGain) / BLOCK) else -min(rate, (playGain - target) / BLOCK)
+        playPos = mixLoop(out, d, playPos, playGain, dg)
+        playGain += dg * BLOCK
+    }
+
+    /** Adds the stereo loop [d] (half rate) to [out] from [pos], with [gain] moving by [dg] a sample. Returns the new pos. */
+    private fun mixLoop(out: FloatArray, d: ShortArray, pos: Float, gain: Float, dg: Float): Float {
+        val frames = d.size / 2
+        var p = pos
+        var g = gain
+        for (i in 0 until BLOCK) {
+            val k = p.toInt()
+            val f = p - k
+            val k1 = if (k + 1 >= frames) 0 else k + 1
+            val l = (d[k * 2] + (d[k1 * 2] - d[k * 2]) * f) / 32767f
+            val r = (d[k * 2 + 1] + (d[k1 * 2 + 1] - d[k * 2 + 1]) * f) / 32767f
+            out[i * 2] += l * g
+            out[i * 2 + 1] += r * g
+            g = max(0f, g + dg)
+            p += 0.5f
+            if (p >= frames) p -= frames
+        }
+        return p
+    }
 
     private fun mixPad(out: FloatArray) {
         val target = if (ambient && Game.sounds) 0.05f * Game.volume else 0f

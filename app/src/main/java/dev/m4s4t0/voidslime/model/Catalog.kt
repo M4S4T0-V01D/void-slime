@@ -36,38 +36,39 @@ data class Material(
     val crunchy: Boolean = false,
 )
 
-enum class Base(val title: String, val emoji: String, val blurb: String, val price: Int, val mat: Material) {
-    GLOSSY("Glossy", "💧", "Wet-look shine, a classic", 0,
+enum class Base(val title: String, val blurb: String, val price: Int, val mat: Material) {
+    GLOSSY("Glossy", "Wet-look shine, a classic", 0,
         Material(shapeK = 26f, edgeK = 1400f, damping = 3.2f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.3f, alpha = 1f, gloss = 1f)),
-    CLEAR("Clear", "🫧", "Glass-clear and stretchy", 0,
+    CLEAR("Clear", "Glass-clear and stretchy", 0,
         Material(shapeK = 22f, edgeK = 1300f, damping = 2.8f, plastic = 0.4f, relax = 0.4f, volumeK = 30f, gravity = 1.4f, maxStretch = 2.7f, alpha = 0.32f, gloss = 1f)),
-    BUTTER("Butter", "🧈", "Thick, smooth, holds a shape", 0,
+    BUTTER("Butter", "Thick, smooth, holds a shape", 0,
         Material(shapeK = 18f, edgeK = 1800f, damping = 5.5f, plastic = 0.9f, relax = 0.18f, volumeK = 40f, gravity = 1.1f, maxStretch = 1.6f, alpha = 1f, gloss = 0.28f)),
-    CLOUD("Cloud", "☁️", "Fluffy, airy and drizzly", 120,
+    CLOUD("Cloud", "Fluffy, airy and drizzly", 120,
         Material(shapeK = 16f, edgeK = 1000f, damping = 4.5f, plastic = 0.6f, relax = 0.3f, volumeK = 26f, gravity = 0.9f, maxStretch = 2.0f, alpha = 1f, gloss = 0.12f, fluff = 1f)),
-    JELLY("Jelly", "🍮", "Bouncy, wobbly, can't stop jiggling", 150,
+    JELLY("Jelly", "Bouncy, wobbly, can't stop jiggling", 150,
         Material(shapeK = 46f, edgeK = 2200f, damping = 1.3f, plastic = 0.04f, relax = 1.4f, volumeK = 46f, gravity = 2.8f, maxStretch = 1.3f, alpha = 0.62f, gloss = 1f)),
-    ICEE("Icee", "🧊", "Frosty, crackly, crunches as you squish", 200,
+    ICEE("Icee", "Frosty, crackly, crunches as you squish", 200,
         Material(shapeK = 24f, edgeK = 1500f, damping = 3.6f, plastic = 0.45f, relax = 0.35f, volumeK = 32f, gravity = 1.5f, maxStretch = 2.0f, alpha = 0.55f, gloss = 0.7f, frost = 1f, crunchy = true)),
-    CHROME("Chrome", "🪩", "Liquid metal, a mirror you can squish", 250,
+    CHROME("Chrome", "Liquid metal, a mirror you can squish", 250,
         Material(shapeK = 26f, edgeK = 1500f, damping = 3.4f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.1f, alpha = 1f, gloss = 1f, metal = 1f)),
-    HOLO("Holo", "🌈", "Rainbow sheen that shifts as it moves", 300,
+    HOLO("Holo", "Rainbow sheen that shifts as it moves", 300,
         Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 1f, gloss = 1f, holo = 1f)),
-    GLOW("Glow", "✨", "Glows in the dark: turn the lights off", 350,
+    GLOW("Glow", "Glows in the dark: turn the lights off", 350,
         Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.3f, alpha = 0.85f, gloss = 0.9f, glow = 1f)),
-    FLOAM("Floam", "🫘", "Packed with beads, crunches everywhere", 220,
+    FLOAM("Floam", "Packed with beads, crunches everywhere", 220,
         Material(shapeK = 20f, edgeK = 1600f, damping = 4.8f, plastic = 0.7f, relax = 0.22f, volumeK = 38f, gravity = 1.2f, maxStretch = 1.5f, alpha = 1f, gloss = 0.35f, fluff = 0.45f, crunchy = true)),
-    PEARL("Pearl", "🐚", "Soft pearly shimmer, silky smooth", 260,
+    PEARL("Pearl", "Soft pearly shimmer, silky smooth", 260,
         Material(shapeK = 24f, edgeK = 1500f, damping = 3.4f, plastic = 0.4f, relax = 0.4f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.2f, alpha = 1f, gloss = 0.9f, metal = 0.3f, holo = 0.3f)),
-    MAGNETIC("Magnetic", "🧲", "Iron slime: the magnet toy loves it", 320,
+    MAGNETIC("Magnetic", "Iron slime: the magnet toy loves it", 320,
         Material(shapeK = 20f, edgeK = 1500f, damping = 3.6f, plastic = 0.5f, relax = 0.35f, volumeK = 34f, gravity = 1.7f, maxStretch = 2.4f, alpha = 1f, gloss = 0.85f, metal = 0.55f)),
-    THERMO("Thermo", "🌡️", "Changes colour as you play with it", 380,
+    THERMO("Thermo", "Changes colour as you play with it", 380,
         Material(shapeK = 26f, edgeK = 1400f, damping = 3.2f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.6f, maxStretch = 2.3f, alpha = 1f, gloss = 0.8f, thermo = 1f)),
-    GALAXY("Galaxy", "🌌", "A night sky full of stars", 420,
+    GALAXY("Galaxy", "A night sky full of stars", 420,
         Material(shapeK = 24f, edgeK = 1400f, damping = 3.0f, plastic = 0.35f, relax = 0.45f, volumeK = 34f, gravity = 1.5f, maxStretch = 2.4f, alpha = 1f, gloss = 1f, galaxy = 1f)),
     ;
 
     val id get() = name.lowercase()
+    val icon get() = "base_$id"
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id } ?: GLOSSY
@@ -124,7 +125,6 @@ enum class Shape { BEAD, STAR, HEART, SPRINKLE, SLICE, FLAKE, CRYSTAL, GLASS, DI
 
 enum class AddIn(
     val title: String,
-    val emoji: String,
     val shape: Shape,
     /** Sprite size in slime radii. */
     val size: Float,
@@ -134,25 +134,26 @@ enum class AddIn(
     /** Fixed colours (ARGB); empty means a mix of bright ones. */
     val tints: List<Long>,
 ) {
-    FOAM("Foam beads", "⚪", Shape.BEAD, 0.075f, true, 0, listOf(0xFFFFFFFF, 0xFFFFD6EC, 0xFFD8F4FF, 0xFFFFF3B0)),
-    SPRINKLES("Sprinkles", "🍬", Shape.SPRINKLE, 0.09f, false, 0, emptyList()),
-    STARS("Stars", "⭐", Shape.STAR, 0.11f, false, 0, listOf(0xFFFFE066, 0xFFFFFFFF, 0xFF8FE9FF)),
-    HEARTS("Hearts", "💖", Shape.HEART, 0.11f, false, 60, listOf(0xFFFF4D8D, 0xFFFF9EC7, 0xFFFF2B55)),
-    PEARLS("Pearls", "🦪", Shape.BEAD, 0.085f, false, 80, listOf(0xFFFFF8F0, 0xFFF3E6FF, 0xFFE6FFF9)),
-    FISHBOWL("Fishbowl beads", "🔮", Shape.GLASS, 0.12f, true, 100, emptyList()),
-    SUGAR("Sugar crystals", "💎", Shape.CRYSTAL, 0.07f, true, 120, listOf(0xFFFFFFFF, 0xFFE0F7FF)),
-    FRUIT("Fruit slices", "🍊", Shape.SLICE, 0.14f, false, 140, listOf(0xFFFF9F1C, 0xFFFFE14D, 0xFFFF4D6D, 0xFF8BE04E)),
-    SNOW("Snowflakes", "❄️", Shape.FLAKE, 0.11f, false, 160, listOf(0xFFFFFFFF, 0xFFDDF3FF)),
-    CONFETTI("Confetti", "🎉", Shape.DISC, 0.07f, false, 180, emptyList()),
-    MICRO("Micro beads", "🔘", Shape.BEAD, 0.045f, true, 130, listOf(0xFFFFFFFF, 0xFFE8F6FF, 0xFFFFEAF6)),
-    DAISIES("Daisies", "🌼", Shape.FLOWER, 0.13f, false, 150, listOf(0xFFFFFFFF, 0xFFFFE066, 0xFFFF9EC7, 0xFFC9A8FF)),
-    MOONS("Moons", "🌙", Shape.MOON, 0.11f, false, 170, listOf(0xFFFFD36B, 0xFFFFF6D8)),
-    GOLDLEAF("Gold leaf", "🟡", Shape.DISC, 0.085f, false, 190, listOf(0xFFFFD36B, 0xFFFFE9A8, 0xFFE8B04B)),
-    GEMS("Rhinestones", "💠", Shape.CRYSTAL, 0.09f, true, 200, emptyList()),
-    GUMMIES("Gummy worms", "🪱", Shape.SPRINKLE, 0.17f, false, 210, listOf(0xFFFF4D6D, 0xFFFFE14D, 0xFF8BE04E, 0xFFFF8A3D, 0xFF3DA5FF)),
+    FOAM("Foam beads", Shape.BEAD, 0.075f, true, 0, listOf(0xFFFFFFFF, 0xFFFFD6EC, 0xFFD8F4FF, 0xFFFFF3B0)),
+    SPRINKLES("Sprinkles", Shape.SPRINKLE, 0.09f, false, 0, emptyList()),
+    STARS("Stars", Shape.STAR, 0.11f, false, 0, listOf(0xFFFFE066, 0xFFFFFFFF, 0xFF8FE9FF)),
+    HEARTS("Hearts", Shape.HEART, 0.11f, false, 60, listOf(0xFFFF4D8D, 0xFFFF9EC7, 0xFFFF2B55)),
+    PEARLS("Pearls", Shape.BEAD, 0.085f, false, 80, listOf(0xFFFFF8F0, 0xFFF3E6FF, 0xFFE6FFF9)),
+    FISHBOWL("Fishbowl beads", Shape.GLASS, 0.12f, true, 100, emptyList()),
+    SUGAR("Sugar crystals", Shape.CRYSTAL, 0.07f, true, 120, listOf(0xFFFFFFFF, 0xFFE0F7FF)),
+    FRUIT("Fruit slices", Shape.SLICE, 0.14f, false, 140, listOf(0xFFFF9F1C, 0xFFFFE14D, 0xFFFF4D6D, 0xFF8BE04E)),
+    SNOW("Snowflakes", Shape.FLAKE, 0.11f, false, 160, listOf(0xFFFFFFFF, 0xFFDDF3FF)),
+    CONFETTI("Confetti", Shape.DISC, 0.07f, false, 180, emptyList()),
+    MICRO("Micro beads", Shape.BEAD, 0.045f, true, 130, listOf(0xFFFFFFFF, 0xFFE8F6FF, 0xFFFFEAF6)),
+    DAISIES("Daisies", Shape.FLOWER, 0.13f, false, 150, listOf(0xFFFFFFFF, 0xFFFFE066, 0xFFFF9EC7, 0xFFC9A8FF)),
+    MOONS("Moons", Shape.MOON, 0.11f, false, 170, listOf(0xFFFFD36B, 0xFFFFF6D8)),
+    GOLDLEAF("Gold leaf", Shape.DISC, 0.085f, false, 190, listOf(0xFFFFD36B, 0xFFFFE9A8, 0xFFE8B04B)),
+    GEMS("Rhinestones", Shape.CRYSTAL, 0.09f, true, 200, emptyList()),
+    GUMMIES("Gummy worms", Shape.SPRINKLE, 0.17f, false, 210, listOf(0xFFFF4D6D, 0xFFFFE14D, 0xFF8BE04E, 0xFFFF8A3D, 0xFF3DA5FF)),
     ;
 
     val id get() = name.lowercase()
+    val icon get() = "addin_$id"
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id }
@@ -176,6 +177,7 @@ enum class Glitter(val title: String, val argb: Long, val price: Int) {
     ;
 
     val id get() = name.lowercase()
+    val icon get() = "glitter_$id"
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id } ?: NONE
@@ -183,21 +185,22 @@ enum class Glitter(val title: String, val argb: Long, val price: Int) {
 }
 
 /** The dish the slime sits in, and the room's light around it. */
-enum class Tray(val title: String, val emoji: String, val argb: Long, val gloss: Float, val price: Int) {
-    VOID("Void glass", "🌌", 0xFF262046, 1f, 0),
-    MARBLE("Marble", "🤍", 0xFFEDEAF2, 0.7f, 100),
-    BUBBLEGUM("Bubblegum", "🩷", 0xFFFFB3D9, 0.5f, 120),
-    MINT("Mint", "🌿", 0xFFA8F0D0, 0.5f, 120),
-    WOOD("Wood", "🪵", 0xFFB07A4A, 0.25f, 160),
-    NEON("Neon", "💜", 0xFF14101F, 1f, 220),
-    CANDY("Cotton candy", "🍭", 0xFFD9B8FF, 0.6f, 140),
-    SUNSET("Sunset", "🌅", 0xFFFF9A6B, 0.5f, 160),
-    ICE("Ice", "🧊", 0xFFCFEFFF, 1f, 180),
-    STARRY("Starry night", "🌠", 0xFF0B0820, 1f, 260),
-    GOLD("Gold", "👑", 0xFFE8C46A, 0.9f, 300),
+enum class Tray(val title: String, val argb: Long, val gloss: Float, val price: Int) {
+    VOID("Void glass", 0xFF262046, 1f, 0),
+    MARBLE("Marble", 0xFFEDEAF2, 0.7f, 100),
+    BUBBLEGUM("Bubblegum", 0xFFFFB3D9, 0.5f, 120),
+    MINT("Mint", 0xFFA8F0D0, 0.5f, 120),
+    WOOD("Wood", 0xFFB07A4A, 0.25f, 160),
+    NEON("Neon", 0xFF14101F, 1f, 220),
+    CANDY("Cotton candy", 0xFFD9B8FF, 0.6f, 140),
+    SUNSET("Sunset", 0xFFFF9A6B, 0.5f, 160),
+    ICE("Ice", 0xFFCFEFFF, 1f, 180),
+    STARRY("Starry night", 0xFF0B0820, 1f, 260),
+    GOLD("Gold", 0xFFE8C46A, 0.9f, 300),
     ;
 
     val id get() = name.lowercase()
+    val icon get() = "tray_$id"
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id } ?: VOID
@@ -205,14 +208,84 @@ enum class Tray(val title: String, val emoji: String, val argb: Long, val gloss:
 }
 
 /** Extra play tools from the shop (the free ones, Poke to Bubbles, are always there). Names match gl.Tool. */
-enum class Toy(val title: String, val emoji: String, val blurb: String, val price: Int) {
-    SLAP("Slap", "🖐️", "Give it a big wobbly smack", 60),
-    RAKE("Rake", "🍴", "Drag grooves through it, so satisfying", 120),
-    STAMP("Star stamp", "⭐", "Press a star into it", 160),
-    SHAKER("Sprinkle shaker", "🧂", "Shake sprinkles all over it", 140),
-    MAGNET("Magnet", "🧲", "Pull the slime up into spikes (Magnetic slime loves it)", 250),
-    WAND("Bubble wand", "🪄", "Tap to blow a cloud of bubbles, some golden", 300),
+enum class Toy(val title: String, val blurb: String, val price: Int) {
+    SLAP("Slap", "Give it a big wobbly smack", 60),
+    RAKE("Rake", "Drag grooves through it, so satisfying", 120),
+    STAMP("Star stamp", "Press a star into it", 160),
+    SHAKER("Sprinkle shaker", "Shake sprinkles all over it", 140),
+    MAGNET("Magnet", "Pull the slime up into spikes (Magnetic slime loves it)", 250),
+    WAND("Bubble wand", "Tap to blow a cloud of bubbles, some golden", 300),
     ;
 
     val id get() = name.lowercase()
+    val icon get() = "tool_$id"
+}
+
+/** Weather in a world's backdrop, drawn by the back shader (BACK_FS's fx number). */
+enum class Fx { TWINKLE, SNOW, PETALS, BUBBLES, SPARKLE, POLLEN }
+
+/**
+ * Where you play: a painted backdrop behind the dish, its weather, the sky the slime reflects ([skyTop] and
+ * [skyBottom]) and its own little song. Void is the classic procedural space.
+ */
+enum class World(val title: String, val blurb: String, val price: Int, val fx: Fx, val skyTop: Long, val skyBottom: Long) {
+    VOID("The Void", "Deep space, glowing and calm", 0, Fx.TWINKLE, 0xFF2A1F5C, 0xFF0B0820),
+    MEADOW("Sunny meadow", "Rolling hills, flowers and a breeze", 150, Fx.POLLEN, 0xFF8FD8FF, 0xFF9BE07A),
+    CANDY("Candy land", "Lollipops and cotton-candy clouds", 200, Fx.SPARKLE, 0xFFFFC2E2, 0xFFC9A8FF),
+    OCEAN("Under the sea", "Bubbles, coral and friendly fish", 250, Fx.BUBBLES, 0xFF3DD5FF, 0xFF103A8A),
+    SAKURA("Sakura garden", "Cherry blossoms drifting down", 250, Fx.PETALS, 0xFFFFD9E8, 0xFFB98CFF),
+    SNOW("Snowy peaks", "A cosy cabin in the snow", 300, Fx.SNOW, 0xFFCFEFFF, 0xFF7FA6E8),
+    BEACH("Sunset beach", "Palm trees and a warm sunset", 300, Fx.SPARKLE, 0xFFFFB37A, 0xFFFF6F91),
+    SPACE("Planet hop", "Rings, moons and shooting stars", 350, Fx.TWINKLE, 0xFF3B0A6B, 0xFF05030F),
+    NEON("Neon city", "Glowing skyline at night", 400, Fx.SPARKLE, 0xFFFF2BD6, 0xFF14101F),
+    ;
+
+    val id get() = name.lowercase()
+    val icon get() = "world_$id"
+    val backdrop get() = "bg_$id"
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id } ?: VOID
+    }
+}
+
+/** The outline of the dish (see [Shapes.plateR]); the slime squishes up against its wall. */
+enum class Plate(val title: String, val price: Int) {
+    ROUND("Round", 0),
+    SQUARE("Square", 120),
+    HEXAGON("Hexagon", 150),
+    FLOWER("Flower", 180),
+    CLOUD("Cloud", 200),
+    STAR("Star", 240),
+    HEART("Heart", 260),
+    ;
+
+    val id get() = name.lowercase()
+    val icon get() = "plate_$id"
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id } ?: ROUND
+    }
+}
+
+/** The shape a slime settles into (see [Shapes]). Animals get ears and, by default, a cute face. */
+enum class Mold(val title: String, val blurb: String, val price: Int, val animal: Boolean = false) {
+    DOME("Dome", "The classic squishy blob", 0),
+    HEART("Heart", "A big squishy heart", 150),
+    STAR("Star", "Five chubby points", 150),
+    CUBE("Cube", "A soft wobbly cube", 180),
+    FLOWER("Flower", "Six round petals", 180),
+    PUDDING("Pudding", "Tall and jiggly with a flat top", 160),
+    DROP("Drop", "A droplet with a little tip", 160),
+    BEAR("Bear", "Round ears, very huggable", 220, animal = true),
+    BUNNY("Bunny", "Long floppy ears", 220, animal = true),
+    CAT("Cat", "Pointy ears, purrs when poked", 220, animal = true),
+    ;
+
+    val id get() = name.lowercase()
+    val icon get() = "mold_$id"
+
+    companion object {
+        fun of(id: String?) = entries.firstOrNull { it.id == id } ?: DOME
+    }
 }

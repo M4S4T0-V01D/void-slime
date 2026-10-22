@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -46,6 +48,7 @@ import dev.m4s4t0.voidslime.Updater
 import dev.m4s4t0.voidslime.audio.Audio
 import dev.m4s4t0.voidslime.audio.Haptics
 import dev.m4s4t0.voidslime.audio.Snd
+import dev.m4s4t0.voidslime.audio.Song
 import dev.m4s4t0.voidslime.gl.SceneListener
 import dev.m4s4t0.voidslime.gl.SceneMode
 import dev.m4s4t0.voidslime.gl.SlimeView
@@ -71,6 +74,8 @@ class AppState(val view: SlimeView) {
     val rush = RushState()
     /** A recipe the shop wants made: the lab opens with it pinned. */
     var pinnedOrder by mutableStateOf<String?>(null)
+    /** Which shop tab to open on (Home's Worlds button opens straight to worlds). */
+    var shopTab by mutableStateOf(ShopTab.ORDERS)
     /** Pops of celebration on top of everything. */
     val toasts = mutableStateListOf<Toast>()
 
@@ -89,7 +94,8 @@ class RushState {
     var result by mutableStateOf<Int?>(null)
 }
 
-data class Toast(val id: Long, val emoji: String, val title: String, val sub: String)
+/** A celebration card: art, a title, a line, and optionally stars and coins earned. */
+data class Toast(val id: Long, val icon: String, val title: String, val sub: String, val coins: Int = 0, val stars: Int = 0)
 
 private val SCENE_SCREENS = setOf(Screen.HOME, Screen.PLAY, Screen.LAB, Screen.RUSH)
 
@@ -128,6 +134,10 @@ fun SlimeAppUi() {
     val look = Void.palette.look()
     LaunchedEffect(look.bg.toList(), look.accent.toList()) { view.scene { this.look = look } }
     LaunchedEffect(Game.tray) { view.renderer.tray = Game.tray }
+    LaunchedEffect(Game.world) { view.renderer.world = Game.world }
+    LaunchedEffect(Game.plate) { view.renderer.plate = Game.plate }
+    // Each world has its own little song; the rush has a faster one.
+    LaunchedEffect(screen, Game.world) { Audio.song = if (screen == Screen.RUSH) Song.RUSH else Song.valueOf(Game.world.name) }
     val recipe: Recipe = if (screen == Screen.LAB) state.lab.draft else Game.current
     LaunchedEffect(recipe) { val r = recipe; view.scene { setRecipe(r) } }
     LaunchedEffect(screen, state.tool, state.lights) {
@@ -139,7 +149,7 @@ fun SlimeAppUi() {
         }
         val tool = if (screen == Screen.LAB) state.lab.tool else state.tool
         val lights = screen != Screen.PLAY || state.lights
-        val zoom = when (screen) { Screen.LAB -> 0.85f; Screen.HOME -> 0.95f; else -> 0.9f }
+        val zoom = when (screen) { Screen.LAB -> 0.92f; Screen.HOME -> 1f; else -> 0.95f }
         view.scene {
             this.mode = mode; this.tool = tool; lightsOn = lights; this.zoom = zoom
             if (mode != SceneMode.LAB) setForm(1f)
@@ -168,20 +178,20 @@ fun SlimeAppUi() {
                 is GameEvent.StickerEarned -> {
                     Audio.play(Snd.STICKER, 0.9f)
                     Haptics.buzz(Haptics.Kind.SUCCESS)
-                    state.toasts += Toast(System.nanoTime(), e.sticker.emoji, "Sticker: ${e.sticker.title}", "${e.sticker.desc} · +${e.sticker.reward} 🪙")
+                    state.toasts += Toast(System.nanoTime(), e.sticker.icon, "Sticker: ${e.sticker.title}", e.sticker.desc, coins = e.sticker.reward)
                     state.celebrate()
                 }
                 is GameEvent.LevelUp -> {
                     Audio.play(Snd.LEVEL, 0.9f)
                     Haptics.buzz(Haptics.Kind.SUCCESS)
-                    state.toasts += Toast(System.nanoTime(), "⭐", "Level ${e.level}!", "+25 🪙 bonus")
+                    state.toasts += Toast(System.nanoTime(), "level", "Level ${e.level}!", "Level-up bonus", coins = 25)
                     state.celebrate()
                 }
                 is GameEvent.QuestDone -> {
                     Audio.play(Snd.STICKER, 0.8f)
                     Haptics.buzz(Haptics.Kind.SUCCESS)
-                    state.toasts += Toast(System.nanoTime(), e.quest.emoji, "Challenge done!", "${e.quest.text} · +${e.quest.reward} 🪙")
-                    if (e.allDone) state.toasts += Toast(System.nanoTime() + 1, "🏆", "All three done today!", "+${Quests.ALL_BONUS} 🪙 bonus, see you tomorrow")
+                    state.toasts += Toast(System.nanoTime(), e.quest.icon, "Challenge done!", e.quest.text, coins = e.quest.reward)
+                    if (e.allDone) state.toasts += Toast(System.nanoTime() + 1, "trophy", "All three done today!", "Bonus! See you tomorrow", coins = Quests.ALL_BONUS)
                 }
                 is GameEvent.Coins -> if (e.amount >= 1) Audio.play(Snd.COIN, if (e.amount > 3) 0.7f else 0.35f, 1f, 0f, 120)
             }
@@ -196,19 +206,20 @@ fun SlimeAppUi() {
     }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Void.bg)) {
-        val h = maxHeight
         val inScene = screen in SCENE_SCREENS
         if (!inScene) CosmicBackground(Modifier.fillMaxSize())
-        val viewH = when (screen) {
-            Screen.HOME -> h * 0.52f
-            Screen.PLAY -> if (state.zen) h else h - 150.dp
-            Screen.LAB -> h * 0.44f
-            Screen.RUSH -> h
-            else -> 1.dp
+        // The slime always fills the screen; the panels float over it, and the camera centres the dish in what's left.
+        val w = maxWidth.value; val h = maxHeight.value
+        val focus = when (screen) {
+            Screen.HOME -> floatArrayOf(HOME_SIDE / w, 0.1f, 1f - HOME_SIDE / w, 0.9f)
+            Screen.PLAY -> if (state.zen) floatArrayOf(0f, 0f, 1f, 1f) else floatArrayOf(0f, 60f / h, 1f - PLAY_RAIL / w, 1f)
+            Screen.LAB -> floatArrayOf(0f, 60f / h, 1f - labPanel(w) / w, 1f)
+            else -> floatArrayOf(0.05f, 0.16f, 0.95f, 1f)
         }
+        LaunchedEffect(focus.toList()) { view.scene { this.focus = focus } }
         AndroidView(
             factory = { view },
-            modifier = Modifier.fillMaxWidth().height(viewH),
+            modifier = Modifier.fillMaxSize(),
             update = { it.visibility = if (inScene) View.VISIBLE else View.GONE },
         )
         when (screen) {
@@ -236,26 +247,29 @@ private fun Toasts(state: AppState, modifier: Modifier) {
     }
     AnimatedVisibility(
         t != null,
-        modifier.statusBarsPadding().padding(top = 64.dp, start = 24.dp, end = 24.dp),
+        modifier.safe().padding(top = 18.dp),
         enter = slideInVertically { -it } + fadeIn() + scaleIn(initialScale = 0.8f),
         exit = slideOutVertically { -it } + fadeOut(),
     ) {
         val shown = t ?: return@AnimatedVisibility
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Void.panel.copy(alpha = 0.96f))
-                .border(2.dp, Void.cyan.copy(alpha = 0.7f), RoundedCornerShape(24.dp)).padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+        Row(
+            Modifier.widthIn(max = 460.dp).clip(RoundedCornerShape(26.dp)).background(Void.panel.copy(alpha = 0.96f))
+                .border(2.dp, Void.cyan.copy(alpha = 0.7f), RoundedCornerShape(26.dp)).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(shown.emoji, fontSize = 44.sp)
-            Text(shown.title, color = Void.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text(shown.sub, color = Void.dim, fontSize = 13.sp, textAlign = TextAlign.Center)
+            Pic(shown.icon, 60.dp, Modifier.bob(3.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (shown.stars > 0) Stars(shown.stars, size = 22.dp)
+                Text(shown.title, color = Void.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                if (shown.sub.isNotEmpty()) Text(shown.sub, color = Void.dim, fontSize = 13.sp)
+                if (shown.coins > 0) Coins("+${shown.coins}", fontSize = 15.sp)
+            }
         }
     }
 }
 
-/** A box pinned to the bottom of the screen above the gesture bar. */
-@Composable
-fun BottomArea(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(modifier.fillMaxWidth().navigationBarsPadding()) { content() }
-}
+/** Widths (dp) of the panels beside the slime, so the camera can centre it in the space between. */
+const val HOME_SIDE = 250f
+const val PLAY_RAIL = 96f
+fun labPanel(w: Float) = (w * 0.46f).coerceIn(330f, 480f)
